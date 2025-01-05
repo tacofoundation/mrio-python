@@ -11,7 +11,7 @@ A Multidimensional GeoTIFF extends the traditional GeoTIFF format by supporting 
 
 ## What is a GeoTTIFF (GeoTTIFF)?
 
-The GeoTemporal Tag Image File Format (GeoTTIFF) inherits from the Multidimensional GeoTIFF standard by enforcing a stricter convention for defining the temporal dimension. It requires a 4D structure with dimensions ordered as (time, band, x, y). The temporal dimension follows the [STAC specification](https://stacspec.org/), consisting of a date and time in UTC formatted according to [RFC 3339, section 5.6](https://datatracker.ietf.org/doc/html/rfc3339#section-5.6), and using the Gregorian calendar as the temporal reference system.
+The GeoTemporal Tag Image File Format (GeoTTIFF) builds upon the Multidimensional GeoTIFF standard by implementing a stricter convention for defining the temporal dimension. It requires a four-dimensional structure with dimensions ordered as follows: (time, band, x, y). The temporal dimension adheres to the [STAC specification](https://stacspec.org/), which includes a date and time in UTC, formatted according to [RFC 3339, section 5.6](https://datatracker.ietf.org/doc/html/rfc3339#section-5.6), and utilizes the Gregorian calendar as the reference system for time. For additional details, please refer to the [Specification][SPECIFICATION.md].
 
 ## Installation
 
@@ -20,6 +20,8 @@ pip install mrio
 ```
 
 ## How to use it?
+
+### Writing a Multidimensional GeoTIFF
 
 ```python
 import mrio
@@ -66,6 +68,7 @@ params = {
     },
 }
 
+
 # 3. Write the data
 with mrio.open("image.tif", mode="w", **params) as src:
     src.write(datacube.values)
@@ -76,6 +79,10 @@ with mrio.open("image.tif") as src:
     print(src.attributes())
     print(src.profile)
 ```
+
+### Writing a GeoTTIFF
+
+TODO
 
 ## When to use it?
 
