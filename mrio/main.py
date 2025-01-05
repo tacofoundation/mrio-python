@@ -125,12 +125,14 @@ class DatasetReader:
         for i, band_data in enumerate(image, start=1):
             self._file.write(band_data, i)
             self._file.set_band_description(i, band_identifiers[i - 1])
-            self._file.update_tags(
-                MULTIDIMENSIONAL_PATTERN=read_strategy,
-                MULTIDIMENSIONAL_COORDINATES=coordinates_json,
-            )
-            if attributes_json:
-                self._file.update_tags(MULTIDIMENSIONAL_ATTRIBUTES=attributes_json)
+
+        self._file.update_tags(
+            MULTIDIMENSIONAL_PATTERN=read_strategy,
+            MULTIDIMENSIONAL_COORDINATES=coordinates_json,
+        )
+        
+        if attributes_json:
+            self._file.update_tags(MULTIDIMENSIONAL_ATTRIBUTES=attributes_json)
 
     def attributes(self) -> Optional[dict]:
         """Returns the attributes of the dataset."""
