@@ -28,8 +28,9 @@ class DatasetReader:
 
         # Handle MRIO-specific arguments when in write mode
         if self.mode == "w":
+            # remove "mrio:" prefix from kwargs
             mrio_kwargs = {
-                k: kwargs.pop(k) for k in list(kwargs) if k.startswith("mrio:")
+                k.split("mrio:")[1]: kwargs.pop(k) for k in list(kwargs) if k.startswith("mrio:")
             }
             # Validate and store MRIO fields
             self.mrio_kwargs = MRIOFields(**mrio_kwargs)
