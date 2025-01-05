@@ -1,6 +1,6 @@
 # mrio
 
-A Python package for reading and writing multidimensional (n-D) GeoTIFF files.
+mrio reads and writes multidimensional GeoTIFF files.
 
 - **GitHub Repository**: [https://github.com/tacofoundation/mrio](https://github.com/tacofoundation/mrio)
 - **Documentation**: [https://tacofoundation.github.io/mrio/](https://tacofoundation.github.io/mrio/)
@@ -11,9 +11,7 @@ A Multidimensional GeoTIFF extends the traditional GeoTIFF format by supporting 
 
 ## What is a GeoTTIFF (GeoTTIFF)?
 
-The GeoTemporal Tag Image File Format (GeoTTIFF) inherits on the Multidimensional GeoTIFF, but it
-imposes a **strict** way to define the temporal dimension. It always MUST be a 4D structure that 
-contains the dimensions on the following order: (time, band, x, y).
+The GeoTemporal Tag Image File Format (GeoTTIFF) inherits from the Multidimensional GeoTIFF standard by enforcing a stricter convention for defining the temporal dimension. It requires a 4D structure with dimensions ordered as (time, band, x, y). The temporal dimension follows the [STAC specification](https://stacspec.org/), consisting of a date and time in UTC formatted according to [RFC 3339, section 5.6](https://datatracker.ietf.org/doc/html/rfc3339#section-5.6), and using the Gregorian calendar as the temporal reference system.
 
 ## Installation
 
