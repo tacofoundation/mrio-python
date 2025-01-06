@@ -7,35 +7,35 @@ import re
 JSONValue = Union[str, int, float, bool, list, dict, None]
 
 class MRIOFields(BaseModel):
-    strategy: str
+    pattern: str
     coordinates: Dict[str, JSONValue]
     attributes: Optional[Dict[str, JSONValue]] = None
 
-    # Internal fields for parsed strategy components
+    # Internal fields for parsed pattern components
     _before_arrow: Optional[list[str]] = None
     _in_parentheses: Optional[list[str]] = None
     _after_parentheses: Optional[list[str]] = None
 
-    @field_validator("strategy")
-    def validate_strategy(cls, value: str) -> str:
+    @field_validator("pattern")
+    def validate_pattern(cls, value: str) -> str:
         """
-        Validates the strategy string and extracts its components.
+        Validates the pattern string and extracts its components.
 
         Args:
-            value (str): The strategy string to validate.
+            value (str): The pattern string to validate.
 
         Returns:
-            str: The validated strategy string.
+            str: The validated pattern string.
 
         Raises:
-            ValueError: If the strategy string does not match the required format.
+            ValueError: If the pattern string does not match the required format.
         """
         # Regular expression to parse the format: "<vars> -> (<vars>) <vars>"
         pattern = r"^([\w\s]+)\s*->\s*\(([\w\s]+)\)\s+([\w\s]+)$"
         match = re.match(pattern, value)
 
         if not match:
-            raise ValueError("Strategy must match the format '<vars> -> (<vars>) <vars>'.")
+            raise ValueError("pattern must match the format '<vars> -> (<vars>) <vars>'.")
 
         # Extract components and store them for later validation
         cls._before_arrow = match.group(1).split()
@@ -70,7 +70,7 @@ class MRIOFields(BaseModel):
     @model_validator(mode="after")
     def validate_consistency(self) -> Self:
         """
-        Validates consistency between the strategy and coordinates fields.
+        Validates consistency between the pattern and coordinates fields.
 
         Returns:
             MRIOFields: The validated instance.
