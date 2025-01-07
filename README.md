@@ -14,16 +14,7 @@ A Multidimensional Geo Tag Image File Format (mGeoTIFF) extends the traditional 
 
 ## What is a Temporal GeoTIFF?
 
-The Temporal GeoTIFF extends the mGeoTIFF format by enforcing a more stringent convention for defining the temporal dimension. It **must** include four dimensions in the following specific order: `(time, band, x, y)`. The temporal dimension is defined as in the [Google Earth Engine](https://developers.google.com/earth-engine/glossary) name convention, https://developers.google.com/earth-engine/glossary which requires the inclusion of a `md:time_start` and an optional `md:time_end`. Both `md:start_datetime` and `md:end_datetime` should be expressed in seconds since the Unix epoch. It also requires the set of a unique identifier for each image. `md:time_start`, `md:time_end`, and `md:id` must be stored as `md:attributes` in the file. For further details, refer to the [Temporal GeoTIFF Specification](SPECIFICATION.md).
-
-
-
-
-follows the [Google Earth Engine](https://developers.google.com/earth-engine/glossary) naming convention, which requires `md:time_start` and an optional `md:time_end`. Both `md:time_start` and `md:time_end` should be expressed in seconds since the Unix epoch. Additionally, each image must have a unique identifier. The attributes `md:time_start`, `md:time_end`, and `md:id` must be stored under `md:attributes` in the file. For further details, refer to the [Temporal GeoTIFF Specification](SPECIFICATION.md).
-
-## Temporal GeoTIFF Specification
-
-The Temporal GeoTIFF refines the mGeoTIFF format by enforcing a more stringent convention for defining its dimensions. It **MUST** include four dimensions in the following order, with the specified naming convention: `(time, band, x, y)`. Additionally, certain attributes must be included in the file. First, `md:time_start`, which represents the nominal start time of acquisition. Second, `md:time_end`, an optional attribute that indicates the nominal end time of the acquisition or composite period. Lastly, each image must have a unique identifier (`md:id`). These attributes, `md:time_start`, `md:time_end`, and `md:id`, must be stored in the attribute section of the file (`md:attributes`). For further details, refer to the [Temporal GeoTIFF Specification](SPECIFICATION.md).
+The Temporal GeoTIFF refines the mGeoTIFF format by enforcing a more stringent convention for defining its dimensions. It **MUST** include four dimensions in the following order, with the specified naming convention: `(time, band, x, y)`. Additionally, certain attributes must be included in the file. First, `md:time_start`, which represents the nominal start time of acquisition. Second, `md:time_end`, an optional attribute that indicates the nominal end time of the acquisition or composite period. Lastly, each image must have a unique identifier (`md:id`). These attributes, `md:time_start`, `md:time_end`, and `md:id`, must be stored in the   attribute section of the file (`md:attributes`). For further details, refer to the [Temporal GeoTIFF Specification](SPECIFICATION.md).
 
 
 ## When to use it?
