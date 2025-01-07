@@ -6,6 +6,7 @@ import re
 # Allowed JSON-like value types
 JSONValue = Union[str, int, float, bool, list, dict, None]
 
+
 class MRIOFields(BaseModel):
     pattern: str
     coordinates: Dict[str, JSONValue]
@@ -15,6 +16,7 @@ class MRIOFields(BaseModel):
     _before_arrow: Optional[list[str]] = None
     _in_parentheses: Optional[list[str]] = None
     _after_parentheses: Optional[list[str]] = None
+    _inv_pattern: Optional[str] = None
 
     @field_validator("pattern")
     def validate_pattern(cls, value: str) -> str:
@@ -31,8 +33,8 @@ class MRIOFields(BaseModel):
             ValueError: If the pattern string does not match the required format.
         """
         # Regular expression to parse the format: "<vars> -> (<vars>) <vars>"
-        pattern = r"^([\w\s]+)\s*->\s*\(([\w\s]+)\)\s+([\w\s]+)$"
-        match = re.match(pattern, value)
+        re_pattern = re.compile(r"^([\w\s]+)\s*->\s*\(([\w\s]+)\)\s+([\w\s]+)$")
+        match = re_pattern.match(value)        
 
         if not match:
             raise ValueError("pattern must match the format '<vars> -> (<vars>) <vars>'.")
@@ -41,6 +43,7 @@ class MRIOFields(BaseModel):
         cls._before_arrow = match.group(1).split()
         cls._in_parentheses = match.group(2).split()
         cls._after_parentheses = match.group(3).split()
+        cls._inv_pattern = " -> ".join(map(str.strip, value.split("->")[::-1]))
 
         # Ensure variables after '->' match variables before it
         post_arrow_vars = cls._in_parentheses + cls._after_parentheses

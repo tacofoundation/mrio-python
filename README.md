@@ -8,13 +8,13 @@ mrio is a library for reading and writing multidimensional GeoTIFF files, extend
 - **Best Practices**: [https://tacofoundation.github.io/mrio/](https://tacofoundation.github.io/mrio/best-practices)
 - **Examples**: [https://tacofoundation.github.io/mrio/](https://tacofoundation.github.io/mrio/best-practices)
 
-## What is a Multidimensional GeoTIFF (mGeoTIFF)?
+## What is a Multidimensional GeoTIFF?
 
 A Multidimensional Geo Tag Image File Format (mGeoTIFF) extends the traditional GeoTIFF format by supporting N-dimensional arrays, similar to formats like NetCDF, HDF5, or Zarr. It maintains the simplicity and compatibility of GeoTIFF, offering fast access and the ability to be opened by any GIS software or library that supports the GeoTIFF format.
 
 ## What is a Temporal GeoTTIFF?
 
-The Temporal GeoTIFF builds upon the Multidimensional GeoTIFF standard by implementing a stricter convention for defining the temporal dimension. It requires a four-dimensional structure with dimensions ordered as follows: (time, band, x, y). The temporal dimension adheres to the [STAC specification](https://stacspec.org/), which includes a start_datetime and a optional end_datetime. The start_datetime and end_datetime are both strings representing according to [RFC 3339, section 5.6](https://datatracker.ietf.org/doc/html/rfc3339#section-5.6), and utilizes the Gregorian calendar as the reference system for time. For additional details, please refer to the [Specification][SPECIFICATION.md].
+The Temporal GeoTIFF builds upon the mGeoTIFF by implementing a stricter convention for defining the temporal dimension. It requires a four-dimensional structure with dimensions ordered as follows: (time, band, x, y). The temporal dimension adheres to the [STAC specification](https://stacspec.org/), which includes a start_datetime and a optional end_datetime. The start_datetime and end_datetime are both strings representing according to [RFC 3339, section 5.6](https://datatracker.ietf.org/doc/html/rfc3339#section-5.6), and utilizes the Gregorian calendar as the reference system for time. For additional details, please refer to the [Specification][SPECIFICATION.md].
 
 ## When to use it?
 
@@ -95,6 +95,8 @@ Best for larger or complex datacubes (> 1 GB).
     </tr>
   </tbody>
 </table>
+*1: Excellent, 2: Okay, 3: Poor* 
+
 
 ## Proof of Concept
 
@@ -147,13 +149,13 @@ params = {
     "interleave": "pixel",
     "crs": "EPSG:4326",
     "transform": mrio.transform.from_bounds(-76.2, 4.31, -76.1, 4.32, 128, 128),
-    "mrio:pattern": "simulation time band lat lon -> (simulation band time) lat lon",
-    "mrio:coordinates": {
+    "md:pattern": "simulation time band lat lon -> (simulation band time) lat lon",
+    "md:coordinates": {
         "time": time,
         "band": bands,
         "simulation": simulations,
     },
-    "mrio:attributes": {  # OPTIONAL: additional attributes to include in the file
+    "md:attributes": {  # OPTIONAL: additional attributes to include in the file
         "hello": "world",
     },
 }
@@ -165,16 +167,17 @@ with mrio.open("image.tif", mode="w", **params) as src:
 # 4. Read the data
 with mrio.open("image.tif") as src:
     data_r = src.read()
-    attributes = src.attributes()
-    print(src.profile)
 
 # 5. Convert the data back to an xarray DataArray
 datacube_r = xr.DataArray(
     data=data_r,
-    dims=attributes["mrio:dimesions"],
-    coords=attributes["mrio:coordnates"],
-    attrs=attributes["mrio:attributes"]
+    dims=src.md_meta["md:dimensions"],
+    coords=src.md_meta["md:coordinates"],
+    attrs=src.md_meta["md:attributes"]
 )
+
+# 6. Assert that the data is the same
+assert np.allclose(datacube, datacube_r)
 ```
 
 ### Writing a Temporal GeoTIFF
