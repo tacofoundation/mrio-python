@@ -19,13 +19,13 @@ The Temporal GeoTIFF refines the mGeoTIFF format by enforcing a more stringent c
 
 ## When to use it?
 
-#### Multidimensional or Temporal GeoTIFF (mGeoTIFF or GeoTIFF)
+#### Multidimensional or Temporal GeoTIFF
 
-Perfect for small datacubes (< 1 GB).
+Ideal for machine learning workflows, especially when each sample (or minicube) should be retrieved in a single operation. It also excels at sharing data with non-specialized users, offering seamless access and compatibility with commonly used geospatial tools
 
 #### NetCDF, HDF5, or Zarr
 
-Best for larger or complex datacubes (> 1 GB).
+Ideal for complex data analysis workflows, these formats provide superior flexibility, supporting nested groups and advanced chunking strategies. They are ideal for storing large datacubes with detailed metadata.
 
 <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; text-align: center;">
   <thead>

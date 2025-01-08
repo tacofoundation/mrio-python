@@ -25,3 +25,6 @@ for _, submodule_name, is_pkg in pkgutil.walk_packages(rasterio.__path__, prefix
 
 # Import the main I/O MRIO function
 from mrio.main import open
+
+
+__version__ = "0.0.6"
