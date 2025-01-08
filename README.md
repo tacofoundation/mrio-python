@@ -1,6 +1,6 @@
 # mrio
 
-mrio is a library for reading and writing multidimensional GeoTIFF files, extending [rasterio](https://github.com/rasterio/rasterio) to support multidimensional arrays.
+mrio is a library that extends [rasterio](https://github.com/rasterio/rasterio) for reading and writing multidimensional GeoTIFF files.
 
 - **GitHub Repository**: [https://github.com/tacofoundation/mrio](https://github.com/tacofoundation/mrio)
 - **Documentation**: [https://tacofoundation.github.io/mrio/](https://tacofoundation.github.io/mrio/)
@@ -10,11 +10,23 @@ mrio is a library for reading and writing multidimensional GeoTIFF files, extend
 
 ## What is a Multidimensional GeoTIFF?
 
-A Multidimensional Geo Tag Image File Format (mGeoTIFF) extends the traditional GeoTIFF format by supporting N-dimensional arrays, similar to formats like NetCDF, HDF5, or Zarr. It maintains the simplicity and compatibility of GeoTIFF, offering fast access and the ability to be opened by any GIS software or library that supports the GeoTIFF format.
+A Multidimensional Geo Tag Image File Format (mGeoTIFF) extends the traditional GeoTIFF format by supporting N-dimensional arrays, similar to NetCDF, HDF5, or Zarr. It maintains the simplicity and compatibility of GeoTIFF, offering fast access and the ability to be opened by any GIS software or library that supports the GeoTIFF format.
+
 
 ## What is a Temporal GeoTIFF?
 
-The Temporal GeoTIFF refines the mGeoTIFF format by enforcing a more stringent convention for defining its dimensions. It **MUST** include four dimensions in the following order, with the specified naming convention: `(time, band, x, y)`. Additionally, certain attributes must be included in the file. First, `md:time_start`, which represents the nominal start time of acquisition. Second, `md:time_end`, an optional attribute that indicates the nominal end time of the acquisition or composite period. Lastly, each time step must have a unique identifier (`md:id`). These attributes, `md:time_start`, `md:time_end`, and `md:id`, must be stored in the attribute section of the file (`md:attributes`). For further details, refer to the [Temporal GeoTIFF Specification](SPECIFICATION.md).
+
+The **Temporal GeoTIFF (tGeoTIFF)** builds upon the mGeoTIFF format by adopting a stricter convention for defining its dimensions. A tGeoTIFF file **MUST** adhere to the following rules:
+
+1. **Dimensions**: The file must include exactly four dimensions in this specific order:
+  (1) `time`, (2) `band`, (3) `x`, and (4) `y`. These dimensions must follow the specified naming convention.
+
+2. **Required Metadata Attributes**: The following metadata attributes are mandatory:
+   - `md:time_start`: The nominal start time of the observation.
+   - `md:time_end`: The nominal end time of the observation.
+   - `md:id`: A unique identifier for the observation.
+
+For additional information, please refer to the [Temporal GeoTIFF Specification](SPECIFICATION.md).
 
 
 ## When to use it?
@@ -29,7 +41,7 @@ Ideal for complex data analysis workflows, these formats provide superior flexib
 
 ## Proof of Concept
 
-We transformed a large <b style="color: #D32F2F;">2 Terabyte</b> dataset of Zipped Zarr files into a streamlined, **cloud-native** <b style="color: #388E3C;">700 GB</b> dataset. This optimization was achieved using TACO and Temporal GeoTIFFs.
+We transformed a large <b style="color: #D32F2F;">2 Terabyte</b> dataset of Zipped Zarr files into a streamlined, **cloud-native** <b style="color: #388E3C;">700 GB</b> dataset. We reduced the file size by 60% while improving the compression strategy. This optimization was achieved using TACO and Temporal GeoTIFFs.
 
 <p style="text-align: center; margin-top: 15px;">
   <a href="https://www.google.com/" target="_blank" style="font-size: 20px; color: #FFFFFF; text-decoration: none; background-color: #673AB7; padding: 10px 20px; border-radius: 5px; transition: background-color 0.3s;">
@@ -43,24 +55,15 @@ We transformed a large <b style="color: #D32F2F;">2 Terabyte</b> dataset of Zipp
 pip install mrio
 ```
 
-## How to use it?
+## Examples
 
-The API is similar to rasterio, but includes three additional parameters for writing: `md:pattern`, `md:coordinates`, and `md:attributes`.
 
-- **`md:pattern`**: A string defining the strategy to reshape the data into a 3D array (band, x, y).
-- **`md:coordinates`**: A dictionary specifying the coordinates for each dimension.
-- **`md:attributes`**: A dictionary of additional metadata attributes to include in the file.
+### Writing a Multidimensional GeoTIFF
 
-For reading, the `mrio.open` function works similarly to `rasterio.open` but it return an extra `md_meta` attribute with the 
-following keys:
+The following example demonstrates how to write a Multidimensional GeoTIFF using 
+the `mrio` library. It is as simple as using `rasterio`. 
 
-- **`md:dimensions`**: The data's dimensions.
-- **`md:coordinates`**: The coordinates for each dimension.
-- **`md:attributes`**: Metadata attributes stored in the file.
-- **`md:pattern`**: The pattern used to reconstruct the original multidimensional shape.
-- **`md:coordinates_len`**: The size of each dimension.
-
-### Writing a reading a Multidimensional GeoTIFF
+**Hint:** You can obtain better compression ratios by changing the order of the dimensions to be merged (between parentheses). That means changing `simulation time band lat lon -> (simulation band time) lat lon` to `simulation time band lat lon -> (time band simulation) lat lon`. Check the [BEST PRACTICES](BEST_PRACTICES.md) file for more details.
 
 ```python
 import mrio
@@ -107,13 +110,22 @@ params = {
 # 3. Write the data
 with mrio.open("image.tif", mode="w", **params) as src:
     src.write(datacube.values)
+```
 
-# 4. Read the data
+### Reading a Multidimensional GeoTIFF
+
+The following example demonstrates how to read a Multidimensional GeoTIFF using 
+the `mrio` library.
+
+```python
+import mrio
+
+# 1. Read the data
 with mrio.open("image.tif") as src:
     md_meta = src.md_meta
     data_r = src.read()
 
-# 5. Convert the data back to an xarray DataArray
+# 2. Convert the data back to an xr.DataArray (Optional)
 datacube_r = xr.DataArray(
     data=data_r,
     dims=md_meta["md:dimensions"],
@@ -121,13 +133,12 @@ datacube_r = xr.DataArray(
     attrs=md_meta["md:attributes"]
 )
 
-# 6. Assert that the data is the same
-assert np.allclose(datacube, datacube_r)
 ```
 
 ### Writing a Temporal GeoTIFF
 
-A reproducible and **real-world example** of a Temporal GeoTIFF: using this format reduces file size by 60% compared to storing different time steps in separate files.
+The following example demonstrates how to write a Temporal GeoTIFF using
+the `mrio` library.
 
 ```python
 from datetime import datetime
@@ -195,26 +206,50 @@ params = {
 # 6. Write the temporal stack
 with mrio.open("temporal_stack.tif", mode = "w", **params) as src:
     src.write(temporal_stack)
-    
+```
 
-# 7. Read the data
+### Reading a Temporal GeoTIFF
+
+The following example demonstrates how to read a Temporal GeoTIFF using
+the `mrio` library.
+
+```python
+import mrio
+from datetime import datetime
+
+# Read the Multidimensional GeoTIFF
 with mrio.open("temporal_stack.tif") as src:
-    data_r = src.read()    
+    data_r = src.read()
     md_meta = src.md_meta
 
-    # Create the xarray
-    temporal_stack = xr.DataArray(
-        data=data_r,
-        dims=md_meta["md:dimensions"],
-        coords=md_meta["md:coordinates"],
-        attrs=md_meta["md:attributes"]
-    )
+# Create a xr.DataArray (Optional)
+temporal_stack = xr.DataArray(
+    data=data_r,
+    dims=md_meta["md:dimensions"],
+    coords=md_meta["md:coordinates"],
+    attrs=md_meta["md:attributes"]
+)
 
-    # time coordinate from string to datetime
-    temporal_stack["time"] = [
-        datetime.fromtimestamp(t) for t in md_meta["md:attributes"]["md:time_start"]
-    ]
+# Convert the time to a datetime object (Optional)
+temporal_stack["time"] = [
+    datetime.fromtimestamp(t) for t in md_meta["md:attributes"]["md:time_start"]
+]
 ```
+
+### Validation
+
+The `mrio` library includes two functions to validate if a file is a mGeoTIFF or a tGeoTIFF.
+
+```python
+import mrio
+
+# If the file is a mGeoTIFF, it will return True
+mrio.is_mgeotiff("image.tif")
+
+# If the file is a tGeoTIFF, it will return True
+mrio.is_tgeotiff("temporal_stack.tif")
+```
+
 
 ### Best Practices
 

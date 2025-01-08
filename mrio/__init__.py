@@ -31,5 +31,6 @@ for _, submodule_name, is_pkg in pkgutil.walk_packages(
 
 # Import the main I/O MRIO function
 from mrio.main import open
+from mrio.validators import is_mgeotiff, is_tgeotiff
 
-__version__ = "0.0.6"
+__version__ = "0.0.9"

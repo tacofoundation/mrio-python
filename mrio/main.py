@@ -170,12 +170,32 @@ class DatasetReader:
         # Update file metadata
         self._file.update_tags(MD_METADATA=md_metadata)        
 
+    def _obtain_dimensions_from_pattern(self, metadata: dict) -> dict:
+        # Get dimensions from the pattern
+        return metadata["md:pattern"].split("->")[1].split()
+
+    def _obtain_coordinates_len(self, metadata: dict) -> dict:
+        # Get the length of each coordinate
+        return {
+            band: len(metadata["md:coordinates"][band])
+            for band in metadata["md:coordinates"]
+            if band in metadata["md:dimensions"]
+        }        
+
     def _get_md_metadata(self) -> Optional[dict]:
         """Retrieve multi-dimensional metadata."""
         try:
             metadata = self._file.tags().get("MD_METADATA")
             if not metadata:
                 return None
+            
+            # Check if "md:dimensions" exists in metadata
+            if "md:dimensions" not in metadata:
+                metadata["md:dimensions"] = self._obtain_dimensions_from_pattern(metadata)
+            
+            # Check if "md:coordinates_len" exists in metadata
+            if "md:coordinates_len" not in metadata:
+                metadata["md:coordinates_len"] = self._obtain_coordinates_len(metadata)
 
             return json.loads(metadata)
 
