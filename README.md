@@ -39,16 +39,6 @@ Ideal for machine learning workflows, especially when each sample (or minicube) 
 
 Ideal for complex data analysis workflows, these formats provide superior flexibility, supporting nested groups and advanced chunking strategies. They are ideal for storing large datacubes with detailed metadata.
 
-## Proof of Concept
-
-We transformed a large <b style="color: #D32F2F;">2 Terabyte</b> dataset of Zipped Zarr files into a streamlined, **cloud-native** <b style="color: #388E3C;">700 GB</b> dataset. We reduced the file size by 60% while improving the compression strategy. This optimization was achieved using TACO and Temporal GeoTIFFs.
-
-<p style="text-align: center; margin-top: 15px;">
-  <a href="https://www.google.com/" target="_blank" style="font-size: 20px; color: #FFFFFF; text-decoration: none; background-color: #673AB7; padding: 10px 20px; border-radius: 5px; transition: background-color 0.3s;">
-    🌟 Explore the dataset here!
-  </a>
-</p>
-
 ## Installation
 
 ```python
