@@ -8,6 +8,7 @@ from rasterio.errors import RasterioDeprecationWarning
 warnings.filterwarnings("ignore", category=RasterioDeprecationWarning)
 
 # Import all public attributes from the main rasterio module
+# TODO: I don't like this, but idk how to do it better 
 globals().update(
     {
         name: getattr(rasterio, name)
@@ -17,6 +18,7 @@ globals().update(
 )
 
 # Dynamically discover and import all submodules of rasterio
+# TODO: I don't like this, but idk how to do it better 
 for _, submodule_name, is_pkg in pkgutil.walk_packages(
     rasterio.__path__, prefix="rasterio."
 ):
