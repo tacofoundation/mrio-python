@@ -14,7 +14,7 @@ A Multidimensional Geo Tag Image File Format (mGeoTIFF) extends the traditional 
 
 ## What is a Temporal GeoTIFF?
 
-The Temporal GeoTIFF refines the mGeoTIFF format by enforcing a more stringent convention for defining its dimensions. It **MUST** include four dimensions in the following order, with the specified naming convention: `(time, band, x, y)`. Additionally, certain attributes must be included in the file. First, `md:time_start`, which represents the nominal start time of acquisition. Second, `md:time_end`, an optional attribute that indicates the nominal end time of the acquisition or composite period. Lastly, each time step must have a unique identifier (`md:id`). These attributes, `md:time_start`, `md:time_end`, and `md:id`, must be stored in the   attribute section of the file (`md:attributes`). For further details, refer to the [Temporal GeoTIFF Specification](SPECIFICATION.md).
+The Temporal GeoTIFF refines the mGeoTIFF format by enforcing a more stringent convention for defining its dimensions. It **MUST** include four dimensions in the following order, with the specified naming convention: `(time, band, x, y)`. Additionally, certain attributes must be included in the file. First, `md:time_start`, which represents the nominal start time of acquisition. Second, `md:time_end`, an optional attribute that indicates the nominal end time of the acquisition or composite period. Lastly, each time step must have a unique identifier (`md:id`). These attributes, `md:time_start`, `md:time_end`, and `md:id`, must be stored in the attribute section of the file (`md:attributes`). For further details, refer to the [Temporal GeoTIFF Specification](SPECIFICATION.md).
 
 
 ## When to use it?
@@ -27,82 +27,9 @@ Ideal for machine learning workflows, especially when each sample (or minicube) 
 
 Ideal for complex data analysis workflows, these formats provide superior flexibility, supporting nested groups and advanced chunking strategies. They are ideal for storing large datacubes with detailed metadata.
 
-<table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; text-align: center;">
-  <thead>
-    <tr>
-      <th style="background-color: #2E7D32; color: white; padding: 10px; border: 1px solid #ddd;">Feature</th>
-      <th style="background-color: #1976D2; color: white; padding: 10px; border: 1px solid #ddd;">HDF5</th>
-      <th style="background-color: #1976D2; color: white; padding: 10px; border: 1px solid #ddd;">Zarr</th>
-      <th style="background-color: #1976D2; color: white; padding: 10px; border: 1px solid #ddd;">mGeoTIFF</th>
-      <th style="background-color: #512DA8; color: white; padding: 10px; border: 1px solid #ddd;">Explanation</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="background-color: #5b615c; padding: 10px; border: 1px solid #ddd;">Portability</td>
-      <td style="background-color: #FFF59D; padding: 10px; border: 1px solid #ddd;">2</td>
-      <td style="background-color: #EF9A9A; padding: 10px; border: 1px solid #ddd;">3</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">mGeoTIFF is widely supported and easily shareable.</td>
-    </tr>
-    <tr>
-      <td style="background-color: #5b615c; padding: 10px; border: 1px solid #ddd;">Compression</td>
-      <td style="background-color: #FFF59D; padding: 10px; border: 1px solid #ddd;">2</td>
-      <td style="background-color: #FFF59D; padding: 10px; border: 1px solid #ddd;">2</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">Advanced compression options thanks to GDAL.</td>
-    </tr>
-    <tr>
-      <td style="background-color: #5b615c; padding: 10px; border: 1px solid #ddd;">Coordinates definition</td>
-      <td style="background-color: #EF9A9A; padding: 10px; border: 1px solid #ddd;">3</td>
-      <td style="background-color: #EF9A9A; padding: 10px; border: 1px solid #ddd;">3</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">Strict spatial and temporal definitions.</td>
-    </tr>
-    <tr>
-      <td style="background-color: #5b615c; padding: 10px; border: 1px solid #ddd;">GIS compatibility</td>
-      <td style="background-color: #FFF59D; padding: 10px; border: 1px solid #ddd;">2</td>
-      <td style="background-color: #FFF59D; padding: 10px; border: 1px solid #ddd;">2</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">Because a mGeoTIFF is still a GeoTIFF.</td>
-    </tr>
-    <tr>
-      <td style="background-color: #5b615c; padding: 10px; border: 1px solid #ddd;">Chunking</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="background-color: #EF9A9A; padding: 10px; border: 1px solid #ddd;">3</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">mGeoTIFF only supports spatial chunking.</td>
-    </tr>
-    <tr>
-      <td style="background-color: #5b615c; padding: 10px; border: 1px solid #ddd;">Nested Groups</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="background-color: #EF9A9A; padding: 10px; border: 1px solid #ddd;">3</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">mGeoTIFF does not support hierarchical data organization.</td>
-    </tr>
-    <tr>
-      <td style="background-color: #5b615c; padding: 10px; border: 1px solid #ddd;">Diverse Array Shapes Support</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="background-color: #EF9A9A; padding: 10px; border: 1px solid #ddd;">3</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">mGeoTIFF only supports regular arrays.</td>
-    </tr>
-    <tr>
-      <td style="background-color: #5b615c; padding: 10px; border: 1px solid #ddd;">Rich Metadata</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="background-color: #A5D6A7; padding: 10px; border: 1px solid #ddd;">1</td>
-      <td style="background-color: #FFF59D; padding: 10px; border: 1px solid #ddd;">2</td>
-      <td style="padding: 10px; border: 1px solid #ddd;">mGeoTIFF only supports JSON-encoded metadata.</td>
-    </tr>
-  </tbody>
-</table>
-
-*1: Excellent, 2: Okay, 3: Poor* 
-
-
 ## Proof of Concept
 
-We successfully transformed a massive <b style="color: #D32F2F;">4 Terabyte</b> dataset of <b style="color: #D32F2F;">200,000</b> ZARR files into a streamlined, **cloud-native** <b style="color: #388E3C;">700 GB</b> dataset of just few files. This optimization was achieved using TACO and Temporal GeoTIFFs.
+We transformed a large <b style="color: #D32F2F;">2 Terabyte</b> dataset of Zipped Zarr files into a streamlined, **cloud-native** <b style="color: #388E3C;">700 GB</b> dataset. This optimization was achieved using TACO and Temporal GeoTIFFs.
 
 <p style="text-align: center; margin-top: 15px;">
   <a href="https://www.google.com/" target="_blank" style="font-size: 20px; color: #FFFFFF; text-decoration: none; background-color: #673AB7; padding: 10px 20px; border-radius: 5px; transition: background-color 0.3s;">
@@ -118,7 +45,22 @@ pip install mrio
 
 ## How to use it?
 
-### Writing a Multidimensional GeoTIFF
+The API is similar to rasterio, but includes three additional parameters for writing: `md:pattern`, `md:coordinates`, and `md:attributes`.
+
+- **`md:pattern`**: A string defining the strategy to reshape the data into a 3D array (band, x, y).
+- **`md:coordinates`**: A dictionary specifying the coordinates for each dimension.
+- **`md:attributes`**: A dictionary of additional metadata attributes to include in the file.
+
+For reading, the `mrio.open` function works similarly to `rasterio.open` but it return an extra `md_meta` attribute with the 
+following keys:
+
+- **`md:dimensions`**: The data's dimensions.
+- **`md:coordinates`**: The coordinates for each dimension.
+- **`md:attributes`**: Metadata attributes stored in the file.
+- **`md:pattern`**: The pattern used to reconstruct the original multidimensional shape.
+- **`md:coordinates_len`**: The size of each dimension.
+
+### Writing a reading a Multidimensional GeoTIFF
 
 ```python
 import mrio
@@ -274,13 +216,17 @@ with mrio.open("temporal_stack.tif") as src:
     ]
 ```
 
-### Documentation
+### Best Practices
 
-See documentation for more details: [https://tacofoundation.github.io/mrio/](https://tacofoundation.github.io/mrio/)
+See the [BEST PRACTICES](BEST_PRACTICES.md) file for details.
+
+### Specification
+
+See the [SPECIFICATION](SPECIFICATION.md) file for details.
 
 ### License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ### Changes
 
