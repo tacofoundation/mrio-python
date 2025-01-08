@@ -2,11 +2,12 @@ import json
 import math
 from itertools import product
 from pathlib import Path
-from typing import Any, Optional, List
+from typing import Any, List, Optional
 
-import rasterio as rio
 import numpy as np
+import rasterio as rio
 from einops import rearrange
+
 from mrio.datamodel import MRIOFields
 
 
@@ -24,21 +25,24 @@ class DatasetReader:
         self.file_path = file_path
         self.mode = mode.lower()
         self.args = args
-        self.kwargs = kwargs        
+        self.kwargs = kwargs
+
+        if self.mode not in ["r", "w"]:
+            raise ValueError("Invalid mode. Use 'r' for read or 'w' for write.")
 
         # Initialize mode-specific settings
         if self.mode == "w":
             self._initialize_write_mode()
-        elif self.mode != "r":
-            raise ValueError("Invalid mode. Use 'r' for read or 'w' for write.")
 
         # Open the file
-        self._file = rio.open(self.file_path, self.mode, *self.args, **self.kwargs)
+        try:
+            self._file = rio.open(self.file_path, self.mode, *self.args, **self.kwargs)
+        except Exception as e:
+            raise IOError(f"Failed to open file {self.file_path}: {e}")
 
         # Initialize attributes for read mode
         if self.mode == "r":
             self._initialize_read_mode()
-
 
     def _initialize_write_mode(self):
         """Validate and process metadata for write mode."""
@@ -84,7 +88,6 @@ class DatasetReader:
         """Ensure the file is closed."""
         if self._file and not self._file.closed:
             self._file.close()
-        
 
     def read(self, *args, **kwargs) -> Any:
         """Read data from the custom file format."""
@@ -100,18 +103,25 @@ class DatasetReader:
 
     def __del__(self):
         """Ensure the file is closed when the object is deleted."""
-        self.close()        
+        self.close()
 
     def _read_custom_data(self, *args, **kwargs) -> Any:
         """Internal method to read custom data from the file."""
-        
-        # If no metadata is present, treat the file as a standard GeoTIFF                
-        if not self.md_meta:            
+
+        # If no metadata is present, treat the file as a standard GeoTIFF
+        if not self.md_meta:
             return self._file.read(*args, **kwargs)
 
-        # Read raw data and rearrange based on metadata
-        raw_data = self._file.read(*args, **kwargs)        
-        return rearrange(raw_data, self.md_meta["md:pattern"], **self.md_meta["md:coordinates_len"])
+        # Check for required metadata keys
+        pattern = self.md_meta.get("md:pattern")
+        coordinates_len = self.md_meta.get("md:coordinates_len")
+
+        if not pattern or not coordinates_len:
+            raise KeyError("Missing required metadata keys: 'md:pattern' or 'md:coordinates_len'.")
+        
+        # Read the raw data and rearrange it
+        raw_data = self._file.read(*args, **kwargs)
+        return rearrange(raw_data, pattern, **coordinates_len)
 
     def _write_custom_data(self, data: Any):
         """Internal method to write custom data to the file."""
@@ -120,60 +130,78 @@ class DatasetReader:
         if not self.md_kwargs.pattern or not self.md_kwargs.coordinates:
             self._file.write(data)
             return
-        
+
         # Rearrange data according to the pattern
         image: np.ndarray = rearrange(data, self.md_kwargs.pattern)
 
         # Generate unique band identifiers
         band_unique_identifiers: List[str] = [
-            "__".join(combination) 
+            "__".join(combination)
             for combination in product(
-                *[self.md_kwargs.coordinates[band] for band in self.md_kwargs._in_parentheses]
+                *[
+                    self.md_kwargs.coordinates[band]
+                    for band in self.md_kwargs._in_parentheses
+                ]
             )
-        ] 
+        ]
 
         # Create GLOBAL METADATA for the file
-        md_metadata = json.dumps({
-            "md:dimensions": self.md_kwargs._before_arrow,
-            "md:coordinates": self.md_kwargs.coordinates,
-            "md:coordinates_len": {
-                band: len(coords) for band, coords in self.md_kwargs.coordinates.items()
-                if band in self.md_kwargs._in_parentheses
-            },
-            "md:attributes": self.md_kwargs.attributes,
-            "md:pattern": self.md_kwargs._inv_pattern,
-        })
+        md_metadata = json.dumps(
+            {
+                "md:dimensions": self.md_kwargs._before_arrow,
+                "md:coordinates": self.md_kwargs.coordinates,
+                "md:coordinates_len": {
+                    band: len(coords)
+                    for band, coords in self.md_kwargs.coordinates.items()
+                    if band in self.md_kwargs._in_parentheses
+                },
+                "md:attributes": self.md_kwargs.attributes,
+                "md:pattern": self.md_kwargs._inv_pattern,
+            }
+        )
 
         # Write bands and set descriptions
-        for i, (band_data, band_id) in enumerate(zip(image, band_unique_identifiers), start=1):
+        for i, (band_data, band_id) in enumerate(
+            zip(image, band_unique_identifiers), start=1
+        ):
             self._file.write(band_data, i)
             self._file.set_band_description(i, band_id)
 
         # Update file metadata
-        self._file.update_tags(MD_METADATA=md_metadata)
+        self._file.update_tags(MD_METADATA=md_metadata)        
 
     def _get_md_metadata(self) -> Optional[dict]:
         """Retrieve multi-dimensional metadata."""
+        try:
+            metadata = self._file.tags().get("MD_METADATA")
+            if not metadata:
+                return None
 
-        # Retrieve metadata from the file tags
-        metadata = self._file.tags().get("MD_METADATA")
-        if not metadata:
-            return None
+            return json.loads(metadata)
 
-        # If metadata is present, parse and return it
-        return json.loads(metadata)
-    
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Failed to parse 'MD_METADATA'. Ensure the metadata is in valid JSON format. "
+                f"Raw metadata: {metadata}"
+            ) from e
+
+        except Exception as e:
+            raise RuntimeError(
+                f"An unexpected error occurred while retrieving 'MD_METADATA': {e}"
+            ) from e
+
     def tags(self) -> dict:
         """Retrieve all tags from the file."""
         return self._file.tags()
-    
+
     def __repr__(self):
         if self._file.closed:
-            return f"<close DatasetReader name='{self.file_path}' mode='{self.mode}'>"
+            return f"<closed DatasetReader name='{self.file_path}' mode='{self.mode}'>"
         return f"<open DatasetReader name='{self.file_path}' mode='{self.mode}'>"
-    
+
     def __str__(self):
         return repr(self)
+
 
 def open(file_path: Path, mode: str = "r", *args, **kwargs) -> DatasetReader:
     """

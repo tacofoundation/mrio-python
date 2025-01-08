@@ -21,7 +21,7 @@ The Temporal GeoTIFF refines the mGeoTIFF format by enforcing a more stringent c
 
 #### Multidimensional or Temporal GeoTIFF
 
-Ideal for machine learning workflows, especially when each sample (or minicube) should be retrieved in a single operation. It also excels at sharing data with non-specialized users, offering seamless access and compatibility with commonly used geospatial tools
+Ideal for machine learning workflows, especially when each sample (or minicube) should be retrieved in a single operation. It also excels at sharing data with non-specialized users, offering seamless access and compatibility with commonly used geospatial tools.
 
 #### NetCDF, HDF5, or Zarr
 
@@ -96,6 +96,7 @@ Ideal for complex data analysis workflows, these formats provide superior flexib
     </tr>
   </tbody>
 </table>
+
 *1: Excellent, 2: Okay, 3: Poor* 
 
 
@@ -167,14 +168,15 @@ with mrio.open("image.tif", mode="w", **params) as src:
 
 # 4. Read the data
 with mrio.open("image.tif") as src:
+    md_meta = src.md_meta
     data_r = src.read()
 
 # 5. Convert the data back to an xarray DataArray
 datacube_r = xr.DataArray(
     data=data_r,
-    dims=src.md_meta["md:dimensions"],
-    coords=src.md_meta["md:coordinates"],
-    attrs=src.md_meta["md:attributes"]
+    dims=md_meta["md:dimensions"],
+    coords=md_meta["md:coordinates"],
+    attrs=md_meta["md:attributes"]
 )
 
 # 6. Assert that the data is the same
@@ -183,14 +185,13 @@ assert np.allclose(datacube, datacube_r)
 
 ### Writing a Temporal GeoTIFF
 
-A reproducible and **real-world example** of a Temporal GeoTIFF: using this format reduces file size by 60% compared 
-to storing different time steps in separate files.
+A reproducible and **real-world example** of a Temporal GeoTIFF: using this format reduces file size by 60% compared to storing different time steps in separate files.
 
 ```python
 from datetime import datetime
-import pandas as pd
 import tacoreader
 import numpy as np
+import xarray as xr
 import mrio
 
 # 1. Load a dataset that contains images from the same location
@@ -208,7 +209,7 @@ for index, row in s2_roi_images.iterrows():
     print("Dowloading image %s" % row["tortilla:id"])
     
     # Get the snipet of the Sentinel-2 image
-    s2_str = row.read(0).read(0)
+    s2_str = row.read().read(0)
 
     # Load the image
     with mrio.open(s2_str) as src:
@@ -228,38 +229,49 @@ params = {
     'width': temporal_stack.shape[-1],
     'height': temporal_stack.shape[-2],
     'compress': 'zstd',
-    'zstd_level': 22,
+    'zstd_level': 9, # 22
     'predictor': 2,
+    'blockxsize': temporal_stack.shape[-1],
+    'blockysize': temporal_stack.shape[-2],
     'tiled': True,
-    'num_threads': 10,
+    #'num_threads': 10,
     'interleave': 'pixel',
-    'crs': row["stac:crs"].iloc[0],
-    'transform': mrio.Affine.from_gdal(*row["stac:geotransform"].iloc[0]),
-    'mrio:pattern': 'time band lat lon -> (band time) lat lon',
-    'mrio:coordinates': {
+    'crs': row["stac:crs"],
+    'transform': mrio.Affine.from_gdal(*row["stac:geotransform"]),
+    'md:pattern': 'time band lat lon -> (band time) lat lon',
+    'md:coordinates': {
         "time": time_coord,
         "band": band_coord
     },
-    'mrio:attributes': {
-        'time_start': s2_roi_images["stac:time_start"].tolist(),
-        'time_end': s2_roi_images["stac:time_end"].tolist(),
+    'md:attributes': {
+        'md:time_start': s2_roi_images["stac:time_start"].tolist(),
+        'md:time_end': s2_roi_images["stac:time_end"].tolist(),
+        'md:id': s2_roi_images["tortilla:id"].tolist(),
     }
 }
 
 # 6. Write the temporal stack
 with mrio.open("temporal_stack.tif", mode = "w", **params) as src:
     src.write(temporal_stack)
+    
 
 # 7. Read the data
 with mrio.open("temporal_stack.tif") as src:
-    data_r = src.read()
-    attributes = src.attributes()
+    data_r = src.read()    
+    md_meta = src.md_meta
+
+    # Create the xarray
     temporal_stack = xr.DataArray(
         data=data_r,
-        dims=attributes["mrio:dimensions"],
-        coords=attributes["mrio:coordinates"],
-        attrs=attributes["mrio:attributes"]
+        dims=md_meta["md:dimensions"],
+        coords=md_meta["md:coordinates"],
+        attrs=md_meta["md:attributes"]
     )
+
+    # time coordinate from string to datetime
+    temporal_stack["time"] = [
+        datetime.fromtimestamp(t) for t in md_meta["md:attributes"]["md:time_start"]
+    ]
 ```
 
 ### Documentation

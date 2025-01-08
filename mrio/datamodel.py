@@ -1,7 +1,8 @@
-from typing import Dict, Optional, Union
-from typing_extensions import Self
-from pydantic import BaseModel, field_validator, model_validator
 import re
+from typing import Dict, Optional, Union
+
+from pydantic import BaseModel, field_validator, model_validator
+from typing_extensions import Self
 
 # Allowed JSON-like value types
 JSONValue = Union[str, int, float, bool, list, dict, None]
@@ -34,10 +35,12 @@ class MRIOFields(BaseModel):
         """
         # Regular expression to parse the format: "<vars> -> (<vars>) <vars>"
         re_pattern = re.compile(r"^([\w\s]+)\s*->\s*\(([\w\s]+)\)\s+([\w\s]+)$")
-        match = re_pattern.match(value)        
+        match = re_pattern.match(value)
 
         if not match:
-            raise ValueError("pattern must match the format '<vars> -> (<vars>) <vars>'.")
+            raise ValueError(
+                "pattern must match the format '<vars> -> (<vars>) <vars>'."
+            )
 
         # Extract components and store them for later validation
         cls._before_arrow = match.group(1).split()
@@ -53,7 +56,9 @@ class MRIOFields(BaseModel):
         return value
 
     @field_validator("coordinates")
-    def validate_coordinates(cls, value: Optional[Dict[str, JSONValue]]) -> Optional[Dict[str, JSONValue]]:
+    def validate_coordinates(
+        cls, value: Optional[Dict[str, JSONValue]]
+    ) -> Optional[Dict[str, JSONValue]]:
         """
         Validates the coordinates dictionary.
 
@@ -87,4 +92,3 @@ class MRIOFields(BaseModel):
                 f"must match the variables in parentheses {self._in_parentheses}."
             )
         return self
-
