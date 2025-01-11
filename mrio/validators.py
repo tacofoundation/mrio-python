@@ -1,7 +1,11 @@
-import rasterio as rio
 import json
 
-def check_metadata(path: str, required_fields: list, required_attributes: list = None) -> bool:
+import rasterio as rio
+
+
+def check_metadata(
+    path: str, required_fields: list, required_attributes: list = None
+) -> bool:
     """
     Check if a GeoTIFF file contains valid MD_METADATA with specified fields and attributes.
 
@@ -41,10 +45,13 @@ def check_metadata(path: str, required_fields: list, required_attributes: list =
     if required_attributes:
         attributes = metadata.get("md:attributes", {})
         if not all(attr in attributes for attr in required_attributes):
-            print(f"Missing required attributes in md:attributes: {required_attributes}")
+            print(
+                f"Missing required attributes in md:attributes: {required_attributes}"
+            )
             return False
 
     return True
+
 
 def is_mgeotiff(path: str) -> bool:
     """
@@ -58,6 +65,7 @@ def is_mgeotiff(path: str) -> bool:
     """
     required_fields = ["md:pattern", "md:coordinates"]
     return check_metadata(path, required_fields)
+
 
 def is_tgeotiff(path: str) -> bool:
     """
