@@ -1,6 +1,7 @@
 import importlib
 import pkgutil
 import warnings
+from pathlib import Path
 
 import rasterio
 from rasterio.errors import RasterioDeprecationWarning
@@ -30,7 +31,26 @@ for _, submodule_name, is_pkg in pkgutil.walk_packages(
 
 
 # Import the main I/O MRIO function
-from mrio.main import open
+from mrio.dataset import DatasetReader
 from mrio.validators import is_mgeotiff, is_tgeotiff
+from importlib.metadata import version
 
-__version__ = "0.0.9"
+
+__version__ = version("mrio")
+
+
+def open(file_path: Path, mode: str = "r", *args, **kwargs) -> DatasetReader:
+    """
+    Open a DatasetReader object.
+
+    Args:
+        file_path (Path): Path to the dataset file.
+        mode (str): Mode ('r' for read, 'w' for write).
+        *args: Additional arguments for rasterio.
+        **kwargs: Additional keyword arguments for rasterio.
+
+    Returns:
+        DatasetReader: An instance of DatasetReader.
+    """
+
+    return DatasetReader(file_path, mode, *args, **kwargs)

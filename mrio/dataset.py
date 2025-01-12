@@ -1,43 +1,3 @@
-"""
-Custom Dataset Reader for Multi-Dimensional GeoTIFFs
-=====================================================
-
-This module provides tools for reading and writing multi-dimensional 
-GeoTIFF files, designed for efficient handling of large datasets. It 
-supports advanced metadata handling, lazy loading, and customizable 
-write parameters.
-
-Features:
----------
-- Efficient generation of compliant multi-dimensional GeoTIFF files.
-- Metadata parsing and validation.
-
-Usage:
-------
-    import mrio
-
-    # Reading a dataset
-    with mrio.open("path/to/input.tif") as reader:
-        data = reader.read()
-
-    # Writing a dataset
-    write_params_minimal = {
-        "driver": "GTiff",
-        "crs": "EPSG:4326",
-        "transform": mrio.transform.from_bounds(-76.2, 4.31, -76.1, 4.32, 128, 128),
-        "md:pattern": "simulation time band lat lon -> (simulation band time) lat lon",
-        "md:coordinates": {
-            "time": ["2025-01-01", "2025-01-02"],
-            "band": ["B01", "B02", "B03"],
-            "simulation": ["A", "B"],
-        },
-    }
-    with mrio.open("path/to/output.tif", mode="w", **write_params) as writer:
-        writer.write(data)
-
-Created with <3 at the Image Processing Lab, University of Valencia, Spain.
-"""
-
 import json
 import math
 from functools import lru_cache
@@ -49,8 +9,9 @@ import numpy as np
 import rasterio as rio
 from einops import rearrange
 
-from mrio.datamodel import MRIOFields
-from mrio.partial_read import PartialReadImage
+from mrio.chunk_reader import ChunkedReader
+from mrio.errors import MRIOError, MRIOIOError
+from mrio.fields import MRIOFields, WriteParams
 
 # Constants
 READ_MODE = "r"
@@ -58,24 +19,6 @@ WRITE_MODE = "w"
 VALID_MODES = {READ_MODE, WRITE_MODE}
 MD_PREFIX = "md:"
 MD_METADATA_KEY = "MD_METADATA"
-DEFAULT_WRITE_PARAMS = {
-    "driver": "GTiff",  # Default to GeoTIFF format
-    "dtype": "float32",  # Default data type for raster values
-    "compress": "lzw",  # Default compression method
-    "interleave": "band",  # Default interleaving (band or pixel)
-    "tiled": True,  # Enable tiling for better performance
-    "blockxsize": 256,  # Tile width
-    "blockysize": 256,  # Tile height
-    "nodata": None,  # NoData value
-    "count": 1,  # AUTOMATIC: The package automatically sets the number of bands.
-    "width": None,  # MANDATORY: Width of the raster in pixels.
-    "height": None,  # MANDATORY: Height of the raster in pixels.
-    "crs": None,  # MANDATORY: Coordinate Reference System to be set by the user.
-    "transform": None,  # MANDATORY: Affine transform to be set by the user.
-    "md:pattern": None,  # MANDATORY: Pattern for multi-dimensional data.
-    "md:coordinates": None,  # MANDATORY: Coordinates for each dimension.
-    "md:attributes": {},  # OPTIONAL: Additional attributes to include in the file.
-}
 
 
 class DatasetReader:
@@ -101,8 +44,6 @@ class DatasetReader:
         read(*args, **kwargs): Read data from the file. Only windows and indexes are supported.
         write(data): Write data to the file.
         tags(): Retrieve tags from the file.
-        __enter__(): Enter runtime context.
-        __exit__(): Exit runtime context and close the file.
     """
 
     __slots__ = (
@@ -142,26 +83,50 @@ class DatasetReader:
         self.file_path = file_path
         self.mode = mode.lower()
         self.args = args
-        self.kwargs = {**DEFAULT_WRITE_PARAMS, **kwargs}
+        self.kwargs = kwargs
 
         if self.mode not in VALID_MODES:
-            raise ValueError(
+            raise MRIOError(
                 f"Invalid mode. Use '{READ_MODE}' for read or '{WRITE_MODE}' for write."
             )
 
         # Initialize mode-specific settings
         if self.mode == WRITE_MODE:
+            self.kwargs = WriteParams(params=kwargs).to_dict()
             self._initialize_write_mode()
 
         # Open the file
-        try:
+        try:            
             self._file = rio.open(self.file_path, self.mode, *self.args, **self.kwargs)
         except Exception as e:
-            raise IOError(f"Failed to open file {self.file_path}: {e}")
+            raise MRIOIOError(f"Failed to open file {self.file_path}: {e}")
 
         # Initialize attributes for read mode
         if self.mode == READ_MODE:
             self._initialize_read_mode()
+
+    def _get_md_metadata(self) -> Optional[dict]:
+        """Retrieve multi-dimensional metadata."""
+
+        metadata = self._file.tags().get(MD_METADATA_KEY)
+
+        # If MD_METADATA key is not present, return None (not mGeoTIFF)
+        if not metadata:
+            return None
+
+        metadata_dict = json.loads(metadata)
+
+        # Check if "md:dimensions" exists in metadata
+        if "md:dimensions" not in metadata_dict:
+            metadata_dict["md:dimensions"] = self._obtain_dimensions_from_pattern(
+                metadata_dict
+            )
+
+        # Check if "md:coordinates_len" exists in metadata
+        if "md:coordinates_len" not in metadata_dict:
+            metadata_dict["md:coordinates_len"] = self._obtain_coordinates_len(metadata)
+
+        return metadata_dict
 
     def _initialize_write_mode(self):
         """Validate and process metadata for write mode."""
@@ -186,16 +151,16 @@ class DatasetReader:
         self.height = profile_get("height")
         self.crs = profile_get("crs")
         self.transform = profile_get("transform")
-        self.count = profile_get("count")
+        self.count = profile_get("count")        
 
         # Batch attribute assignment
         for attr in ["indexes", "window", "bounds", "shape", "dtypes", "nodata"]:
             setattr(self, attr, getattr(self._file, attr))
 
-        # Load the multi-dimensional metadata
+        # Load multi-dimensional metadata
         self.md_meta = self._get_md_metadata()
 
-        # Create real shape
+        # Create real shape        
         self.shape = (
             *self.md_meta["md:coordinates_len"].values(),
             self.height,
@@ -213,34 +178,6 @@ class DatasetReader:
             for band in metadata["md:coordinates"]
             if band in metadata["md:dimensions"]
         }
-
-    def _get_md_metadata(self) -> Optional[dict]:
-        """Retrieve multi-dimensional metadata."""
-        try:
-            metadata = self._file.tags().get(MD_METADATA_KEY)
-            if not metadata:
-                return None
-
-            metadata_dict = json.loads(metadata)
-
-            # Check if "md:dimensions" exists in metadata
-            if "md:dimensions" not in metadata_dict:
-                metadata_dict["md:dimensions"] = self._obtain_dimensions_from_pattern(
-                    metadata_dict
-                )
-
-            # Check if "md:coordinates_len" exists in metadata
-            if "md:coordinates_len" not in metadata_dict:
-                metadata_dict["md:coordinates_len"] = self._obtain_coordinates_len(
-                    metadata
-                )
-
-            return metadata_dict
-
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in MD_METADATA: {metadata}") from e
-        except Exception as e:
-            raise RuntimeError(f"Error retrieving MD_METADATA: {e}") from e
 
     def _write_custom_data(self, data: Any):
         """Internal method to write custom data to the file."""
@@ -312,6 +249,14 @@ class DatasetReader:
         raw_data = self._read(*args, **kwargs)
         return rearrange(raw_data, pattern, **coordinates_len)
 
+    def __enter__(self):
+        """Enter the runtime context."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Exit the runtime context and close the file."""
+        self.close()
+
     def close(self):
         """Ensure the file is closed."""
         if self._file and not self._file.closed:
@@ -320,13 +265,13 @@ class DatasetReader:
     def read(self, *args, **kwargs) -> Any:
         """Read data from the custom file format."""
         if self.mode != "r":
-            raise ValueError("File must be opened in read mode.")
+            raise MRIOError("File must be opened in read mode.")
         return self._read_custom_data(*args, **kwargs)
 
     def write(self, data: Any):
         """Write data to the custom file format."""
         if self.mode != "w":
-            raise ValueError("File must be opened in write mode.")
+            raise MRIOError("File must be opened in write mode.")
         self._write_custom_data(data)
 
     def tags(self) -> dict:
@@ -335,15 +280,7 @@ class DatasetReader:
 
     def get_slice(self) -> Any:
         """Retrieve a slice from the file."""
-        return PartialReadImage(self)
-
-    def __enter__(self):
-        """Enter the runtime context."""
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """Exit the runtime context and close the file."""
-        self.close()
+        return ChunkedReader(self)
 
     def __del__(self):
         """Ensure the file is closed when the object is deleted."""
@@ -356,20 +293,3 @@ class DatasetReader:
 
     def __str__(self):
         return repr(self)
-
-
-def open(file_path: Path, mode: str = "r", *args, **kwargs) -> DatasetReader:
-    """
-    Open a DatasetReader object.
-
-    Args:
-        file_path (Path): Path to the dataset file.
-        mode (str): Mode ('r' for read, 'w' for write).
-        *args: Additional arguments for rasterio.
-        **kwargs: Additional keyword arguments for rasterio.
-
-    Returns:
-        DatasetReader: An instance of DatasetReader.
-    """
-
-    return DatasetReader(file_path, mode, *args, **kwargs)

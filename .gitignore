@@ -171,3 +171,5 @@ cython_debug/
 .pypirc
 
 demo.py
+
+zarr_demo.zarr/

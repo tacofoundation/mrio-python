@@ -1,39 +1,19 @@
-from __future__ import annotations
-
 import math
-from typing import (Any, Dict, List, Optional, Protocol, Sequence, Tuple,
-                    Union, runtime_checkable)
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import rasterio
+from einops import rearrange
 from affine import Affine
 from numpy.typing import NDArray
 from rasterio.windows import Window
 
-# Type definitions
-Slice = Union[slice, int, list, tuple]
-Coordinate = Union[str, int, bool, Sequence[Any]]
-DimensionFilter = List[Slice]
+from mrio.errors import MRIOError
+from mrio.protocol import DatasetProtocol
+from mrio.typing import DimensionFilter
 
 
-@runtime_checkable
-class DatasetProtocol(Protocol):
-    """Protocol defining required dataset interface."""
-
-    def close(self) -> None: ...
-    def _read(self, bands: List[int], window: Optional[Window] = None) -> NDArray: ...
-
-    @property
-    def transform(self) -> Affine: ...
-
-    @property
-    def profile(self) -> Dict[str, Any]: ...
-
-    @property
-    def md_meta(self) -> Dict[str, Any]: ...
-
-
-class PartialReadImage:
+class ChunkedReader:
     """
     Optimized implementation of partial image reading with metadata handling.
     """
@@ -102,30 +82,62 @@ class PartialReadImage:
 
         return rasterio.windows.transform(window, self.dataset.transform)
 
+    def _get_new_md_meta_coordinates(self) -> Dict[str, Any]:
+        """
+        Updates "md:coordinates" based on the provided query conditions.
+
+        Returns:
+            A dictionary of updated coordinates.
+        Raises:
+            MRIOError: If any filter criteria are of unsupported types.
+        """
+        # Validate query conditions
+        query_conditions = self.last_query[0]
+        if not all(isinstance(cond, (slice, int, list, tuple)) for cond in query_conditions):
+            raise MRIOError("Filter criteria must be of type slice, int, list, or tuple.")
+        
+        # Retrieve initial metadata
+        coords = self.dataset.md_meta["md:coordinates"]
+        dims = self.dataset.md_meta["md:dimensions"]
+
+        # Update coordinates
+        new_coords = {}
+        for dim_index, cond in enumerate(query_conditions):
+            dim_name = dims[dim_index]
+            dim_coords = coords[dim_name]
+
+            # Handle each condition type
+            if isinstance(cond, (int, slice)):  # Single index or slice
+                updated_coord = dim_coords[cond]
+            elif isinstance(cond, (list, tuple)):  # List or tuple of indices
+                updated_coord = [dim_coords[c] for c in cond]
+            else:
+                raise MRIOError(f"Unsupported condition type: {type(cond)}")
+            
+            # Ensure single value is wrapped in a list
+            if isinstance(updated_coord, (str, int, bool)):
+                updated_coord = [updated_coord]
+            
+            new_coords[dim_name] = updated_coord
+
+        return new_coords
+
+    def _get_new_md_meta_coordinates_len(self, new_coords: Dict[str, Any]) -> Dict[str, Any]:
+        return {key: len(values) for key, values in new_coords.items()}
+
     def _get_new_md_meta(self) -> Dict[str, Any]:
         """
         Update metadata based on the provided key.
         """
 
-        if not all(
-            isinstance(cond, (slice, int, list, tuple)) for cond in self.last_query[0]
-        ):
-            raise ValueError("Filter criteria must be slice, int, list, or tuple.")
-
-        # Get the initial coordinates and dimensions
-        coords = self.dataset.md_meta["md:coordinates"]
+        # Get the new md:coordinates
+        new_coords = self._get_new_md_meta_coordinates()
         dims = self.dataset.md_meta["md:dimensions"]
+        
+        # Update the md:coordinates_len and count
+        new_coords_len = self._get_new_md_meta_coordinates_len(new_coords)
 
-        new_coords = {
-            dims[dim]: (
-                [coords[dims[dim]][cond]]
-                if isinstance(coords[dims[dim]][cond], (str, int, bool))
-                else coords[dims[dim]][cond]
-            )
-            for dim, cond in enumerate(self.last_query[0])
-        }
-
-        new_coords_len = {key: len(values) for key, values in new_coords.items()}
+        # Set the new count
         self.new_count = math.prod(new_coords_len.values())
 
         return {
@@ -140,8 +152,6 @@ class PartialReadImage:
         """
         Perform optimized partial read operation.
         """
-        if len(key) < 2:
-            raise IndexError("Invalid key format")
 
         # Store the last query for metadata update
         self.last_query = (key[:-2], key[-2:])
@@ -162,14 +172,21 @@ class PartialReadImage:
         )
         window = Window.from_slices(row_slice, col_slice)
 
-        return self.dataset._read(result.tolist(), window=window)
+        # Parameters for the rearrange function
+        data_chunk: NDArray = self.dataset._read(result.tolist(), window=window)
+        coordinates_len: Dict[str, Any] = self._get_new_md_meta_coordinates_len(
+            new_coords=self._get_new_md_meta_coordinates()
+        )
+                
+        return rearrange(data_chunk, self.dataset.md_meta.get("md:pattern"), **coordinates_len)
+
 
     def update_metadata(self) -> Dict[str, Any]:
         """
         Generate complete metadata dictionary with validation.
         """
         if self.last_query is None:
-            raise ValueError("No query has been made yet")
+            raise MRIOError("No query has been made yet")
 
         md_meta = self._get_new_md_meta()
         new_transform = self._get_new_geotransform()
