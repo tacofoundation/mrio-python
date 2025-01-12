@@ -1,33 +1,20 @@
-GNU GENERAL PUBLIC LICENSE
-                      Version 3, 29 June 2007
+# CC0 1.0 Universal (CC0 1.0) Public Domain Dedication
 
-    Python Package that support the read/write of multidimensional GeoTIFF files
-    Copyright (C) 2025  Cesar Aybar
+## Statement of Purpose
+The person who associated a work with this deed has dedicated the work to the public domain by waiving all of their copyright and related or neighboring rights to the extent allowed by law.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+You can copy, modify, distribute, and perform the work, even for commercial purposes, all without asking permission.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+### Disclaimer
+THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE WORK OR THE USE OR OTHER DEALINGS IN THE WORK.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+---
 
-Also add information on how to contact you by electronic and paper mail.
+## Official Text
+This is a human-readable summary of the [CC0 1.0 Legal Code](https://creativecommons.org/publicdomain/zero/1.0/legalcode).
 
-  You should also get your employer (if you work as a programmer) or school,
-if any, to sign a "copyright disclaimer" for the program, if necessary.
-For more information on this, and how to apply and follow the GNU GPL, see
-<http://www.gnu.org/licenses/>.
+---
 
-  The GNU General Public License does not permit incorporating your program
-into proprietary programs.  If your program is a subroutine library, you
-may consider it more useful to permit linking proprietary applications with
-the library.  If this is what you want to do, use the GNU Lesser General
-Public License instead of this License.  But first, please read
-<http://www.gnu.org/philosophy/why-not-lgpl.html>.
+## How to Apply CC0 to Your Work
 
+To the extent possible under law, the TACO Foundation has waived all copyright and related or neighboring rights to this work. This work is published from: Spain.

@@ -2,11 +2,6 @@
 
 mrio is a library that extends [rasterio](https://github.com/rasterio/rasterio) for reading and writing multidimensional GeoTIFF files.
 
-- **GitHub Repository**: [https://github.com/tacofoundation/mrio](https://github.com/tacofoundation/mrio)
-- **Specification**: [https://tacofoundation.github.io/mrio/](https://tacofoundation.github.io/mrio/specification)
-- **Best Practices**: [https://tacofoundation.github.io/mrio/](https://tacofoundation.github.io/mrio/best-practices)
-- **Examples**: [https://tacofoundation.github.io/mrio/](https://tacofoundation.github.io/mrio/examples)
-
 ## What is a Multidimensional GeoTIFF?
 
 A Multidimensional Geo Tag Image File Format (mGeoTIFF) extends the traditional GeoTIFF format by supporting 
@@ -16,10 +11,10 @@ the GeoTIFF format. For additional information, please refer to the [Specificati
 
 ## What is a Temporal GeoTIFF?
 
-The **Temporal GeoTIFF (tGeoTIFF)** builds upon the mGeoTIFF format by adopting a stricter 
-convention for defining its dimensions. A tGeoTIFF file **MUST** adhere to the following rules:
+The Temporal GeoTIFF builds upon the mGeoTIFF format by adopting a stricter convention definition. A temporal 
+GeoTIFF file **MUST** adhere to the following rules:
 
-1. **Dimensions**: The file must include exactly four dimensions which the following name conventions:
+1. **Dimensions**: The file must include exactly four dimensions with the following names:
     - `time`: The temporal dimension.
     - `band`: The spectral dimension.
     - `x`: The spatial dimension along the x-axis.
@@ -56,7 +51,7 @@ pip install .
 
 ### License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the CC0 1.0 Universal Public Domain Dedication - see the [LICENSE](LICENSE) file for details.
 
 ### Changes
 
