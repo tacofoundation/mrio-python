@@ -1,6 +1,4 @@
-"""
-MRIO Dataset Writer Module with automatic parameter detection.
-"""
+"""MRIO Dataset Writer Module with automatic parameter detection."""
 
 from __future__ import annotations
 
@@ -8,14 +6,17 @@ import json
 import math
 from itertools import product
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import rasterio as rio
 import xarray as xr
 from einops import rearrange
+from typing_extensions import Self
 
 from mrio.fields import MRIOFields, WriteParams
-from mrio.types import DataArray, MetadataDict, PathLike
+
+if TYPE_CHECKING:
+    from mrio.types import DataArray, MetadataDict, PathLike
 
 # Constants
 MD_PREFIX: str = "md:"
@@ -23,8 +24,7 @@ MD_METADATA_KEY: str = "MD_METADATA"
 
 
 class DatasetWriter:
-    """
-    Writer for multi-dimensional GeoTIFF files with metadata handling.
+    """Writer for multi-dimensional GeoTIFF files with metadata handling.
 
     Supports automatic inference of width, height, and dtype from input data.
 
@@ -36,13 +36,20 @@ class DatasetWriter:
         ... }
         >>> with DatasetWriter('output.tif', **params) as writer:
         ...     writer.write(data)
+
     """
 
-    __slots__ = ("_file", "_initialized", "args", "file_path", "kwargs", "md_kwargs")
+    __slots__ = (
+        "_file",
+        "_initialized",
+        "args",
+        "file_path",
+        "kwargs",
+        "md_kwargs",
+    )
 
     def __init__(self, file_path: PathLike, *args: Any, **kwargs: Any) -> None:
-        """
-        Initialize DatasetWriter with parameter auto-detection support.
+        """Initialize DatasetWriter with parameter auto-detection support.
 
         Args:
             file_path: Path to the output file
@@ -53,6 +60,7 @@ class DatasetWriter:
         Note:
             File is not opened until the first write operation to allow
             for parameter inference from data.
+
         """
         self.file_path = Path(file_path)
         self.args = args
@@ -62,8 +70,7 @@ class DatasetWriter:
         self._initialized = False
 
     def _infer_parameters(self, data: DataArray) -> dict[str, Any]:
-        """
-        Infer missing parameters from input data.
+        """Infer missing parameters from input data.
 
         Args:
             data: Input data array
@@ -73,12 +80,14 @@ class DatasetWriter:
 
         Note:
             Only infers parameters that are None in self.kwargs
+
         """
         if isinstance(data, xr.DataArray):
             data = data.values
 
         if data.ndim < 2:
-            raise ValueError("Data must have at least 2 dimensions")
+            msg = "Data must have at least 2 dimensions"
+            raise ValueError(msg)
 
         inferred = {}
         if self.kwargs.get("height") is None:
@@ -91,11 +100,11 @@ class DatasetWriter:
         return inferred
 
     def _initialize_write_mode(self, data: DataArray | None = None) -> None:
-        """
-        Initialize write mode and process metadata parameters.
+        """Initialize write mode and process metadata parameters.
 
         Args:
             data: Optional data array for parameter inference
+
         """
         # Initialize kwargs with WriteParams defaults
         kwargs = self.kwargs.copy()
@@ -109,9 +118,7 @@ class DatasetWriter:
         kwargs = WriteParams(params=kwargs).to_dict()
 
         # Extract metadata parameters
-        md_kwargs_dict = {
-            k[len(MD_PREFIX) :]: v for k, v in kwargs.items() if k.startswith(MD_PREFIX)
-        }
+        md_kwargs_dict = {k[len(MD_PREFIX) :]: v for k, v in kwargs.items() if k.startswith(MD_PREFIX)}
 
         # Remove processed metadata from kwargs
         for k in md_kwargs_dict:
@@ -121,9 +128,7 @@ class DatasetWriter:
         self.md_kwargs = MRIOFields(**md_kwargs_dict)
 
         # Calculate total number of bands
-        kwargs["count"] = math.prod(
-            len(coords) for coords in self.md_kwargs.coordinates.values()
-        )
+        kwargs["count"] = math.prod(len(coords) for coords in self.md_kwargs.coordinates.values())
 
         self.kwargs = kwargs
 
@@ -132,33 +137,34 @@ class DatasetWriter:
             try:
                 self._file = rio.open(self.file_path, "w", *self.args, **self.kwargs)
             except Exception as e:
-                raise OSError(f"Failed to open {self.file_path} for writing: {e}")
+                msg = f"Failed to open {self.file_path} for writing: {e}"
+                raise OSError(msg)
 
         self._initialized = True
 
     def write(self, data: DataArray) -> None:
-        """
-        Write data to file with metadata handling and parameter inference.
+        """Write data to file with metadata handling and parameter inference.
 
         Args:
             data: Array data to write (numpy array or xarray.DataArray)
 
         Raises:
             ValueError: If data shape doesn't match metadata
+
         """
         if not self._initialized:
             self._initialize_write_mode(data)
         self._write_custom_data(data)
 
     def _write_custom_data(self, data: DataArray) -> None:
-        """
-        Write data with metadata handling.
+        """Write data with metadata handling.
 
         Args:
             data: Array data to write
 
         Note:
             Falls back to simple write if no pattern/coordinates specified
+
         """
         if not self._initialized:
             self._initialize_write_mode(data)
@@ -170,18 +176,16 @@ class DatasetWriter:
         self._rearrange_and_write(data)
 
     def _rearrange_and_write(self, data: DataArray) -> None:
-        """
-        Rearrange and write data according to pattern.
+        """Rearrange and write data according to pattern.
 
         Args:
             data: Array data to rearrange and write
+
         """
         # Filter coordinates to match pattern
         coordinates_keys = set(self.md_kwargs.coordinates)
         self.md_kwargs.coordinates = {
-            k: self.md_kwargs.coordinates[k]
-            for k in self.md_kwargs._before_arrow
-            if k in coordinates_keys
+            k: self.md_kwargs.coordinates[k] for k in self.md_kwargs._before_arrow if k in coordinates_keys
         }
 
         # Rearrange data according to pattern
@@ -199,8 +203,7 @@ class DatasetWriter:
         self._file.update_tags(MD_METADATA=json.dumps(md_metadata))
 
     def _generate_band_identifiers(self) -> list[str]:
-        """
-        Generate unique identifiers for each band.
+        """Generate unique identifiers for each band.
 
         Returns:
             List of band identifiers based on coordinate combinations
@@ -208,23 +211,19 @@ class DatasetWriter:
         Example:
             >>> writer._generate_band_identifiers()
             ['red__2020', 'red__2021', 'green__2020', 'green__2021']
+
         """
         return [
             "__".join(map(str, combination))
-            for combination in product(
-                *[
-                    self.md_kwargs.coordinates[band]
-                    for band in self.md_kwargs._in_parentheses
-                ]
-            )
+            for combination in product(*[self.md_kwargs.coordinates[band] for band in self.md_kwargs._in_parentheses])
         ]
 
     def _generate_metadata(self) -> MetadataDict:
-        """
-        Generate complete metadata dictionary.
+        """Generate complete metadata dictionary.
 
         Returns:
             Dictionary containing all metadata fields
+
         """
         return {
             "md:dimensions": self.md_kwargs._before_arrow,
@@ -244,16 +243,16 @@ class DatasetWriter:
             self._file.close()
 
     def __setitem__(self, key: Any, value: DataArray) -> None:
-        """
-        Support array-like assignment syntax.
+        """Support array-like assignment syntax.
 
         Args:
             key: Index or slice object
             value: Data to write
+
         """
         self._write_custom_data(value)
 
-    def __enter__(self) -> DatasetWriter:
+    def __enter__(self) -> Self:
         """Context manager entry."""
         return self
 

@@ -1,11 +1,10 @@
-"""
-Tests for the SliceTransformer class.
+"""Tests for the SliceTransformer class.
 
 These tests cover all functionality, edge cases, and error conditions
 to achieve 100% code coverage.
 """
 
-from typing import Any, List, Tuple
+from typing import Any
 
 import pytest
 
@@ -31,7 +30,7 @@ def transformer_3d():
 # ------------------
 
 
-def test_valid_initialization():
+def test_valid_initialization() -> None:
     """Test valid initialization cases."""
     t = SliceTransformer(ndim=1)
     assert t.ndim == 1
@@ -40,7 +39,7 @@ def test_valid_initialization():
     assert t.ndim == 100
 
 
-def test_invalid_initialization():
+def test_invalid_initialization() -> None:
     """Test invalid initialization cases."""
     with pytest.raises(ValueError, match="ndim must be a positive integer"):
         SliceTransformer(ndim=0)
@@ -56,7 +55,7 @@ def test_invalid_initialization():
 # ------------------------
 
 
-def test_integer_transform(transformer):
+def test_integer_transform(transformer) -> None:
     """Test transforming single integer indices."""
     # Basic integer case
     assert transformer.transform(1) == (
@@ -83,7 +82,7 @@ def test_integer_transform(transformer):
     )
 
 
-def test_slice_transform(transformer):
+def test_slice_transform(transformer) -> None:
     """Test transforming slice objects."""
     # Basic slice
     assert transformer.transform(slice(1, 3)) == (
@@ -123,7 +122,7 @@ def test_slice_transform(transformer):
 
 
 @pytest.mark.parametrize(
-    "lst,dim,expected",
+    ("lst", "dim", "expected"),
     [
         (
             [1, 3],
@@ -143,14 +142,12 @@ def test_slice_transform(transformer):
         ),
     ],
 )
-def test_list_with_dimension(
-    transformer, lst: List[int], dim: int, expected: Tuple[Any, ...]
-):
+def test_list_with_dimension(transformer, lst: list[int], dim: int, expected: tuple[Any, ...]) -> None:
     """Test transforming lists with specified dimensions."""
     assert transformer.transform(lst, dim=dim) == expected
 
 
-def test_nested_case_transform(transformer):
+def test_nested_case_transform(transformer) -> None:
     """Test transforming nested list-dimension pairs as tuples."""
     # Basic nested case
     result = transformer.transform(([1, 3], 1))
@@ -163,7 +160,7 @@ def test_nested_case_transform(transformer):
     assert result == expected
 
 
-def test_tuple_transform(transformer):
+def test_tuple_transform(transformer) -> None:
     """Test transforming tuples with various combinations."""
     # Basic tuple
     assert transformer.transform((1, 2)) == (
@@ -190,7 +187,7 @@ def test_tuple_transform(transformer):
     )
 
 
-def test_ellipsis_handling(transformer):
+def test_ellipsis_handling(transformer) -> None:
     """Test handling of ellipsis in tuples."""
     # Basic ellipsis
     assert transformer.transform((1, Ellipsis, 2)) == (
@@ -221,7 +218,7 @@ def test_ellipsis_handling(transformer):
 # ----------
 
 
-def test_invalid_dimension_errors(transformer):
+def test_invalid_dimension_errors(transformer) -> None:
     """Test errors from invalid dimension specifications."""
     with pytest.raises(ValueError, match="Invalid dimension"):
         transformer.transform([1, 2], dim=4)
@@ -233,7 +230,7 @@ def test_invalid_dimension_errors(transformer):
         transformer.transform(([1, 2], 5))
 
 
-def test_invalid_list_errors(transformer):
+def test_invalid_list_errors(transformer) -> None:
     """Test errors from invalid list inputs."""
     with pytest.raises(ValueError, match="List must contain only integers"):
         transformer.transform(([1, "2"], 1))
@@ -242,13 +239,13 @@ def test_invalid_list_errors(transformer):
         transformer.transform(["1", "2"], dim=1)
 
 
-def test_multiple_ellipsis_error(transformer):
+def test_multiple_ellipsis_error(transformer) -> None:
     """Test error from multiple ellipsis in tuple."""
     with pytest.raises(ValueError, match="Multiple ellipsis found in key"):
         transformer.transform((Ellipsis, 1, Ellipsis))
 
 
-def test_unsupported_type_errors(transformer):
+def test_unsupported_type_errors(transformer) -> None:
     """Test errors from unsupported input types."""
     with pytest.raises(TypeError, match="Unsupported key type"):
         transformer.transform({"key": "value"})
@@ -261,7 +258,7 @@ def test_unsupported_type_errors(transformer):
 # ---------
 
 
-def test_single_dimension_transformer():
+def test_single_dimension_transformer() -> None:
     """Test transformer with single dimension."""
     t = SliceTransformer(ndim=1)
     assert t.transform(0) == (slice(0, 1),)
@@ -269,7 +266,7 @@ def test_single_dimension_transformer():
     assert t.transform((0,)) == (slice(0, 1),)
 
 
-def test_large_dimension_transformer():
+def test_large_dimension_transformer() -> None:
     """Test transformer with many dimensions."""
     t = SliceTransformer(ndim=10)
     result = t.transform(1)
@@ -278,7 +275,7 @@ def test_large_dimension_transformer():
     assert all(s == slice(None) for s in result[1:])
 
 
-def test_dimension_overflow(transformer):
+def test_dimension_overflow(transformer) -> None:
     """Test handling of too many dimensions in input."""
     # More dimensions than specified
     result = transformer.transform((1, 2, 3, 4, 5))

@@ -1,5 +1,4 @@
-"""
-MRIO Types Module
+"""MRIO Types Module.
 
 This module defines type aliases and custom types used throughout the MRIO package.
 It provides type hints for JSON data, array operations, file paths, and dimension
@@ -9,6 +8,7 @@ Example:
     >>> from mrio.types import JSONValue, PathLike, DataArray
     >>> def save_metadata(path: PathLike, data: JSONValue) -> None:
     ...     pass
+
 """
 
 from __future__ import annotations
@@ -78,7 +78,8 @@ DimKey = Union[
 ]
 
 SliceTuple = tuple[
-    Union[slice, tuple[slice, ...]], ...  # Single slice  # Tuple of slices
+    Union[slice, tuple[slice, ...]],
+    ...,  # Single slice  # Tuple of slices
 ]
 
 IntList = list[int]  # List of integers

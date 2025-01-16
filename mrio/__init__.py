@@ -1,5 +1,4 @@
-"""
-MRIO (Multi-dimensional Raster I/O) is a Python package for reading and writing
+"""MRIO (Multi-dimensional Raster I/O) is a Python package for reading and writing
 multi-dimensional and standard GeoTIFF files.
 
 This package extends rasterio with multi-dimensional data support and provides a simple
@@ -16,6 +15,7 @@ Example:
     Writing data to a file:
         >>> with mrio.open("output.tif", mode="w", **profile) as dst:
         ...     dst.write(data)
+
 """
 
 from __future__ import annotations
@@ -58,6 +58,7 @@ class Mode:
         READ: Read mode ('r')
         WRITE: Write mode ('w')
         VALID_MODES: Set of valid operation modes
+
     """
 
     READ: Literal["r"] = "r"
@@ -67,21 +68,29 @@ class Mode:
 
 @overload
 def open(
-    file_path: PathLike, mode: Literal["r"] = "r", engine: str = "xarray", **kwargs: Any
+    file_path: PathLike,
+    mode: Literal["r"] = "r",
+    engine: str = "xarray",
+    **kwargs: Any,
 ) -> DatasetReader: ...
 
 
 @overload
 def open(
-    file_path: PathLike, mode: Literal["w"], engine: str = "xarray", **kwargs: Any
+    file_path: PathLike,
+    mode: Literal["w"],
+    engine: str = "xarray",
+    **kwargs: Any,
 ) -> DatasetWriter: ...
 
 
 def open(
-    file_path: PathLike, mode: str = Mode.READ, engine: str = "xarray", **kwargs: Any
+    file_path: PathLike,
+    mode: str = Mode.READ,
+    engine: str = "xarray",
+    **kwargs: Any,
 ) -> DatasetReader | DatasetWriter:
-    """
-    Open a dataset for reading or writing with enhanced multi-dimensional support.
+    """Open a dataset for reading or writing with enhanced multi-dimensional support.
 
     This function provides a unified interface for opening both standard and
     multi-resolution GeoTIFF files. It automatically detects the file type and
@@ -108,16 +117,17 @@ def open(
 
         >>> with mrio.open("output.tif", mode="w", **profile) as dst:
         ...     dst.write(data)
+
     """
     if not isinstance(file_path, (str, Path)):
-        raise ValueError("file_path must be a string or Path object")
+        msg = "file_path must be a string or Path object"
+        raise ValueError(msg)
 
     file_path = Path(file_path)
 
     if mode not in Mode.VALID_MODES:
-        raise MRIOError(
-            f"Invalid mode '{mode}'. Use '{Mode.READ}' for read or '{Mode.WRITE}' for write."
-        )
+        msg = f"Invalid mode '{mode}'. Use '{Mode.READ}' for read or '{Mode.WRITE}' for write."
+        raise MRIOError(msg)
 
     if mode == Mode.WRITE:
         return DatasetWriter(file_path, **kwargs)
@@ -125,8 +135,7 @@ def open(
 
 
 def read(file_path: PathLike, engine: str = "xarray", **kwargs: Any) -> DatasetReader:
-    """
-    Convenience function to read a dataset file.
+    """Convenience function to read a dataset file.
 
     This is equivalent to calling open() with read mode.
 
@@ -141,13 +150,13 @@ def read(file_path: PathLike, engine: str = "xarray", **kwargs: Any) -> DatasetR
     Examples:
         >>> reader = mrio.read("example.tif")
         >>> data = reader.read()
+
     """
     return open(file_path, mode=Mode.READ, engine=engine, **kwargs)
 
 
 def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
-    """
-    Convenience function to write data to a dataset file.
+    """Convenience function to write data to a dataset file.
 
     This is equivalent to calling open() with write mode and then writing the data.
 
@@ -165,10 +174,12 @@ def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
     Examples:
         >>> data = np.random.rand(100, 100)
         >>> writer = mrio.write("output.tif", data, **profile)
+
     """
     writer = open(file_path, mode=Mode.WRITE, **kwargs)
     if not isinstance(writer, DatasetWriter):
-        raise TypeError("Expected DatasetWriter instance")
+        msg = "Expected DatasetWriter instance"
+        raise TypeError(msg)
 
     writer.write(data)
     return writer

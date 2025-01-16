@@ -1,5 +1,4 @@
-"""
-MRIO Validators Module
+"""MRIO Validators Module.
 
 This module provides validation functions for Multi-dimensional GeoTIFF (MGeoTIFF) and
 Temporal GeoTIFF (TGeoTIFF) files. It checks the presence and validity of required
@@ -9,17 +8,20 @@ Example:
     >>> from mrio.validators import is_mgeotiff, is_tgeotiff
     >>> if is_mgeotiff("example.tif"):
     ...     print("Valid MGeoTIFF file")
+
 """
 
 from __future__ import annotations
 
 import json
 import warnings
+from typing import TYPE_CHECKING
 
 import rasterio as rio
 from rasterio.errors import RasterioError
 
-from mrio.types import MetadataDict, PathLike
+if TYPE_CHECKING:
+    from mrio.types import MetadataDict, PathLike
 
 # Constants
 MD_METADATA_KEY = "MD_METADATA"
@@ -34,8 +36,7 @@ def check_metadata(
     required_attributes: list[str] | None = None,
     strict: bool = True,
 ) -> bool:
-    """
-    Validate GeoTIFF metadata against required fields and attributes.
+    """Validate GeoTIFF metadata against required fields and attributes.
 
     Args:
         path: Path to the GeoTIFF file
@@ -54,6 +55,7 @@ def check_metadata(
     Example:
         >>> check_metadata("data.tif", ["md:pattern"], ["time_start"])
         True
+
     """
     try:
         metadata = _load_metadata(path)
@@ -82,8 +84,7 @@ def check_metadata(
 
 
 def is_mgeotiff(path: PathLike, strict: bool = False) -> bool:
-    """
-    Check if a file is a valid Multi-dimensional GeoTIFF (MGeoTIFF).
+    """Check if a file is a valid Multi-dimensional GeoTIFF (MGeoTIFF).
 
     MGeoTIFF files must contain md:pattern and md:coordinates in their metadata.
 
@@ -97,13 +98,13 @@ def is_mgeotiff(path: PathLike, strict: bool = False) -> bool:
     Example:
         >>> is_mgeotiff("multidim.tif")
         True
+
     """
     return check_metadata(path, list(MGEOTIFF_REQUIRED_FIELDS), strict=strict)
 
 
 def is_tgeotiff(path: PathLike, strict: bool = False) -> bool:
-    """
-    Check if a file is a valid Temporal GeoTIFF (TGeoTIFF).
+    """Check if a file is a valid Temporal GeoTIFF (TGeoTIFF).
 
     TGeoTIFF files must contain both MGeoTIFF fields and temporal attributes.
 
@@ -117,6 +118,7 @@ def is_tgeotiff(path: PathLike, strict: bool = False) -> bool:
     Example:
         >>> is_tgeotiff("temporal.tif")
         True
+
     """
     return check_metadata(
         path,
@@ -135,9 +137,11 @@ def _load_metadata(path: PathLike) -> MetadataDict | None:
                 return None
             return json.loads(tags[MD_METADATA_KEY])
     except RasterioError as e:
-        raise ValueError(f"Failed to open file: {e}")
+        msg = f"Failed to open file: {e}"
+        raise ValueError(msg)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid metadata JSON: {e}")
+        msg = f"Invalid metadata JSON: {e}"
+        raise ValueError(msg)
 
 
 def _get_missing_fields(metadata: MetadataDict, required_fields: list[str]) -> set[str]:
@@ -145,9 +149,7 @@ def _get_missing_fields(metadata: MetadataDict, required_fields: list[str]) -> s
     return set(required_fields) - set(metadata.keys())
 
 
-def _get_missing_attributes(
-    metadata: MetadataDict, required_attrs: list[str]
-) -> set[str]:
+def _get_missing_attributes(metadata: MetadataDict, required_attrs: list[str]) -> set[str]:
     """Get set of missing required attributes from metadata."""
     attributes = metadata.get("md:attributes", {})
     return set(required_attrs) - set(attributes.keys())

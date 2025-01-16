@@ -1,5 +1,4 @@
-"""
-MRIO Dataset Reader Module
+"""MRIO Dataset Reader Module.
 
 Provides optimized reading capabilities for multi-dimensional GeoTIFF files with
 metadata handling and lazy loading support. Supports both numpy and xarray outputs.
@@ -18,6 +17,7 @@ import rasterio as rio
 import xarray as xr
 from einops import rearrange
 from numpy.typing import NDArray
+from typing_extensions import Self
 
 from mrio.chunk_reader import ChunkedReader
 from mrio.slice_transformer import SliceTransformer
@@ -33,8 +33,7 @@ MD_METADATA_KEY: str = "MD_METADATA"
 
 
 class DatasetReader:
-    """
-    Optimized reader for multi-dimensional GeoTIFF files with metadata handling.
+    """Optimized reader for multi-dimensional GeoTIFF files with metadata handling.
 
     This class provides efficient reading capabilities with metadata handling,
     coordinate management, and lazy loading support. It can output data as either
@@ -55,6 +54,7 @@ class DatasetReader:
         >>> with DatasetReader("example.tif") as ds:
         ...     data = ds.read()  # Returns xarray.DataArray by default
         ...     subset = ds[1:3, :, :]  # Supports array-like indexing
+
     """
 
     __slots__ = (
@@ -95,8 +95,7 @@ class DatasetReader:
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize DatasetReader with optimized metadata handling.
+        """Initialize DatasetReader with optimized metadata handling.
 
         Args:
             file_path: Path to the dataset file
@@ -106,6 +105,7 @@ class DatasetReader:
 
         Raises:
             IOError: If the file cannot be opened
+
         """
         self.file_path = Path(file_path)
         self.engine = engine
@@ -115,7 +115,8 @@ class DatasetReader:
         try:
             self._file = rio.open(self.file_path, "r", *args, **kwargs)
         except Exception as e:
-            raise OSError(f"Failed to open {file_path}: {e}")
+            msg = f"Failed to open {file_path}: {e}"
+            raise OSError(msg)
 
         self._fast_initialize()
 
@@ -174,14 +175,14 @@ class DatasetReader:
 
     @lru_cache(maxsize=1)
     def _fast_load_metadata(self) -> MetadataDict | None:
-        """
-        Load and cache metadata with optimizations.
+        """Load and cache metadata with optimizations.
 
         Returns:
             Optional metadata dictionary with dimensions and coordinates
 
         Warns:
             UserWarning: If metadata loading fails
+
         """
         try:
             metadata = self._file.tags().get(MD_METADATA_KEY)
@@ -197,49 +198,47 @@ class DatasetReader:
             return None
 
     def _enhance_metadata(self, metadata_dict: MetadataDict) -> None:
-        """
-        Enhance metadata with computed fields.
+        """Enhance metadata with computed fields.
 
         Args:
             metadata_dict: Dictionary to enhance with additional metadata
+
         """
         if "md:dimensions" not in metadata_dict:
-            metadata_dict["md:dimensions"] = (
-                metadata_dict["md:pattern"].split("->")[1].split()
-            )
+            metadata_dict["md:dimensions"] = metadata_dict["md:pattern"].split("->")[1].split()
 
         if "md:coordinates_len" not in metadata_dict:
             coords = metadata_dict["md:coordinates"]
             dims = metadata_dict["md:dimensions"]
-            metadata_dict["md:coordinates_len"] = {
-                band: len(coords[band]) for band in dims if band in coords
-            }
+            metadata_dict["md:coordinates_len"] = {band: len(coords[band]) for band in dims if band in coords}
 
     def _read(self, *args: Any, **kwargs: Any) -> DataArray:
-        """
-        Internal method to read raw data from the file.
+        """Internal method to read raw data from the file.
 
         Returns:
             Array containing the read data
+
         """
         return self._file.read(*args, **kwargs)
 
     def read(self, *args: Any, **kwargs: Any) -> DataArray:
-        """
-        Read and process data with optional rearrangement.
+        """Read and process data with optional rearrangement.
 
         Returns:
             Data array with proper dimension arrangement
 
         Note:
             Returns xarray.DataArray when engine='xarray', numpy.ndarray otherwise
+
         """
         if not self.md_meta:
             return self._read(*args, **kwargs)
 
         raw_data = self._file.read(*args, **kwargs)
         data = rearrange(
-            raw_data, self.md_meta["md:pattern"], **self.md_meta["md:coordinates_len"]
+            raw_data,
+            self.md_meta["md:pattern"],
+            **self.md_meta["md:coordinates_len"],
         )
 
         if self.engine == "xarray":
@@ -253,14 +252,14 @@ class DatasetReader:
         return data
 
     def __getitem__(self, key: Any) -> DataArray:
-        """
-        Support array-like indexing with metadata handling.
+        """Support array-like indexing with metadata handling.
 
         Args:
             key: Index or slice object
 
         Returns:
             Subset of the dataset with updated metadata
+
         """
         new_key = SliceTransformer(ndim=len(self.shape)).transform(key)
         data, (new_md_coord, new_md_coord_len) = ChunkedReader(self)[new_key]
@@ -277,11 +276,11 @@ class DatasetReader:
 
     @lru_cache(maxsize=128)
     def tags(self) -> dict[str, str]:
-        """
-        Get cached dataset tags.
+        """Get cached dataset tags.
 
         Returns:
             Dictionary of dataset tags
+
         """
         return self._file.tags()
 
@@ -290,7 +289,7 @@ class DatasetReader:
         if hasattr(self, "_file") and not self._file.closed:
             self._file.close()
 
-    def __enter__(self) -> DatasetReader:
+    def __enter__(self) -> Self:
         """Context manager entry."""
         return self
 
@@ -304,14 +303,14 @@ class DatasetReader:
 
     @staticmethod
     def _humanize_size(size_in_bytes: int) -> str:
-        """
-        Convert size in bytes to human-readable format.
+        """Convert size in bytes to human-readable format.
 
         Args:
             size_in_bytes: Size to convert
 
         Returns:
             Formatted size string (e.g., "Size: 1.23 GB")
+
         """
         size = float(size_in_bytes)
         unit_index = 0
@@ -333,30 +332,25 @@ class DatasetReader:
                 coords_repr.append(
                     f"  * {key} ({key}) <{humanized_size}> "
                     f"{', '.join(map(str, value[:max_items]))} ... {', '.join(map(str, value[-max_items:]))} "
-                    f"({len(value) - 2 * max_items} more)"
+                    f"({len(value) - 2 * max_items} more)",
                 )
             else:
-                coords_repr.append(
-                    f"  * {key} ({key}) <{humanized_size}> "
-                    f"{', '.join(map(str, value))}"
-                )
+                coords_repr.append(f"  * {key} ({key}) <{humanized_size}> {', '.join(map(str, value))}")
         return "\n".join(coords_repr)
 
     def _repr_attributes(self, max_items: int = 6) -> str:
         """Format attribute representation."""
-        attrs_repr = [
-            f"  {key}: {value}" for key, value in list(self.attrs.items())[:max_items]
-        ]
+        attrs_repr = [f"  {key}: {value}" for key, value in list(self.attrs.items())[:max_items]]
         if len(self.attrs) > max_items:
-            attrs_repr.append(f"  ... ({len(self.attrs)-max_items} more)")
+            attrs_repr.append(f"  ... ({len(self.attrs) - max_items} more)")
         return "\n".join(attrs_repr)
 
     def __repr__(self) -> str:
-        """
-        Detailed string representation including size and coordinates.
+        """Detailed string representation including size and coordinates.
 
         Returns:
             Formatted string with dataset information
+
         """
         coords_repr = self._repr_coordinates(max_items=3)
         attrs_repr = self._repr_attributes(max_items=6)

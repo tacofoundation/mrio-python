@@ -1,5 +1,4 @@
-"""
-MRIO Slice Transformer Module
+"""MRIO Slice Transformer Module.
 
 This module provides functionality for transforming various types of array indices
 into a standardized tuple of slices, supporting advanced indexing patterns for
@@ -14,8 +13,7 @@ from mrio.types import DimKey, NestedKey, SliceTuple
 
 
 class SliceTransformer:
-    """
-    Transform array indices into standardized slice tuples.
+    """Transform array indices into standardized slice tuples.
 
     This class handles various types of array indices and transforms them into
     a consistent format of slice tuples, supporting advanced indexing patterns
@@ -32,27 +30,28 @@ class SliceTransformer:
         >>> # Nested slice with dimension
         >>> transformer.transform(([1, 3], 1))
         ((slice(1, 2), slice(3, 4)), slice(1, 2), slice(None), slice(None))
+
     """
 
     __slots__ = ("ndim",)
 
     def __init__(self, ndim: int) -> None:
-        """
-        Initialize the SliceTransformer.
+        """Initialize the SliceTransformer.
 
         Args:
             ndim: Number of dimensions in the target array
 
         Raises:
             ValueError: If ndim is not a positive integer
+
         """
         if not isinstance(ndim, int) or ndim < 1:
-            raise ValueError("ndim must be a positive integer")
+            msg = "ndim must be a positive integer"
+            raise ValueError(msg)
         self.ndim = ndim
 
     def transform(self, key: DimKey, dim: int | None = None) -> SliceTuple:
-        """
-        Transform input key into a tuple of slices.
+        """Transform input key into a tuple of slices.
 
         This method handles various input types and converts them into a standardized
         tuple of slices that matches the specified number of dimensions.
@@ -81,6 +80,7 @@ class SliceTransformer:
             >>> # List with dimension creates nested structure
             >>> transformer.transform([1, 2], dim=0)
             ((slice(1, 2), slice(2, 3)), slice(None), slice(None))
+
         """
         if isinstance(key, tuple) and len(key) == 2 and isinstance(key[0], list):
             return self._handle_nested_case(cast(NestedKey, key))
@@ -97,15 +97,18 @@ class SliceTransformer:
         if isinstance(key, tuple):
             return self._handle_tuple_case(key)
 
-        raise TypeError(f"Unsupported key type: {type(key)}")
+        msg = f"Unsupported key type: {type(key)}"
+        raise TypeError(msg)
 
     def _handle_nested_case(self, key: NestedKey) -> SliceTuple:
         """Handle the special case of (list, dim) tuple input."""
         lst, dim = key
         if not (0 <= dim < self.ndim):
-            raise ValueError(f"Invalid dimension {dim} for ndim {self.ndim}")
+            msg = f"Invalid dimension {dim} for ndim {self.ndim}"
+            raise ValueError(msg)
         if not all(isinstance(item, int) for item in lst):
-            raise ValueError(f"List must contain only integers. Got: {lst}")
+            msg = f"List must contain only integers. Got: {lst}"
+            raise ValueError(msg)
 
         nested_slices = tuple(slice(item, item + 1) for item in lst)
         result = [nested_slices, slice(dim, dim + 1)]
@@ -115,11 +118,11 @@ class SliceTransformer:
     def _handle_dim_case(self, key: DimKey, dim: int) -> SliceTuple:
         """Handle the case where a dimension is specified."""
         if not (0 <= dim < self.ndim):
-            raise ValueError(f"Invalid dimension {dim} for ndim {self.ndim}")
+            msg = f"Invalid dimension {dim} for ndim {self.ndim}"
+            raise ValueError(msg)
         if not isinstance(key, list) or not all(isinstance(item, int) for item in key):
-            raise ValueError(
-                f"When dim is specified, key must be a list of integers. Got: {key}"
-            )
+            msg = f"When dim is specified, key must be a list of integers. Got: {key}"
+            raise ValueError(msg)
 
         result = [slice(None)] * self.ndim
         result[dim] = tuple(slice(item, item + 1) for item in key)
@@ -145,7 +148,8 @@ class SliceTransformer:
         for item in key:
             if item is Ellipsis:
                 if found_ellipsis:
-                    raise ValueError("Multiple ellipsis found in key")
+                    msg = "Multiple ellipsis found in key"
+                    raise ValueError(msg)
                 found_ellipsis = True
                 ellipsis_fill = self.ndim - len(key) + 1
                 result.extend([slice(None)] * ellipsis_fill)
@@ -154,7 +158,8 @@ class SliceTransformer:
             elif isinstance(item, slice):
                 result.append(item)
             else:
-                raise TypeError(f"Unsupported key type: {type(item)}")
+                msg = f"Unsupported key type: {type(item)}"
+                raise TypeError(msg)
 
         # Fill remaining dimensions with slice(None)
         if len(result) < self.ndim:

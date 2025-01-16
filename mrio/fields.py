@@ -1,5 +1,4 @@
-"""
-MRIO Metadata Module
+"""MRIO Metadata Module.
 
 This module provides data structures for handling metadata in the MRIO (Multi-Resolution I/O) format.
 It includes classes for coordinates, metadata fields, and write parameters with validation.
@@ -10,16 +9,17 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from re import Pattern
-from typing import Any, ClassVar, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, TypedDict
 
 from mrio.errors import ValidationError
-from mrio.types import JSONValue
+
+if TYPE_CHECKING:
+    from mrio.types import JSONValue
 
 
 @dataclass(frozen=True)
 class Coordinates:
-    """
-    Immutable coordinate data structure for MRIO metadata.
+    """Immutable coordinate data structure for MRIO metadata.
 
     This class represents coordinate values for each dimension in a multi-dimensional array.
     The coordinate values are stored as lists and are immutable once created.
@@ -32,6 +32,7 @@ class Coordinates:
         ...     'time': [1, 2, 3],
         ...     'bands': ['red', 'green', 'blue']
         ... })
+
     """
 
     values: dict[str, list[JSONValue]]
@@ -41,20 +42,20 @@ class Coordinates:
         self._validate()
 
     def _validate(self) -> None:
-        """
-        Validate that all coordinate values are lists.
+        """Validate that all coordinate values are lists.
 
         Raises:
             ValidationError: If any coordinate value is not a list
+
         """
         if not all(isinstance(v, list) for v in self.values.values()):
-            raise ValidationError("All coordinate values must be lists")
+            msg = "All coordinate values must be lists"
+            raise ValidationError(msg)
 
 
 @dataclass
 class MRIOFields:
-    """
-    Metadata fields for MRIO format.
+    """Metadata fields for MRIO format.
 
     This class handles the pattern specification and coordinates for multi-dimensional arrays.
     It validates the pattern format and ensures consistency between pattern variables and coordinates.
@@ -70,6 +71,7 @@ class MRIOFields:
         ...     coordinates=Coordinates({'time': [1, 2], 'band': ['red', 'green']}),
         ...     attributes={'scale': 0.01}
         ... )
+
     """
 
     pattern: str
@@ -87,38 +89,42 @@ class MRIOFields:
         self._parse_pattern()
 
     def _validate_pattern(self) -> None:
-        """
-        Validate the pattern string format.
+        """Validate the pattern string format.
 
         Raises:
             ValidationError: If pattern format is invalid
+
         """
         if " -> " not in self.pattern:
-            raise ValidationError("Pattern must contain ' -> ' separator")
+            msg = "Pattern must contain ' -> ' separator"
+            raise ValidationError(msg)
 
         self._pattern_match = re.match(self._PATTERN_REGEX, self.pattern)
         if not self._pattern_match:
-            raise ValidationError("Invalid pattern format")
+            msg = "Invalid pattern format"
+            raise ValidationError(msg)
 
     def _validate_coordinates(self) -> None:
-        """
-        Validate coordinates are not empty.
+        """Validate coordinates are not empty.
 
         Raises:
             ValidationError: If coordinates dictionary is empty
+
         """
         if not self.coordinates.values:
-            raise ValidationError("Coordinates cannot be empty")
+            msg = "Coordinates cannot be empty"
+            raise ValidationError(msg)
 
     def _parse_pattern(self) -> None:
-        """
-        Parse and validate pattern components.
+        """Parse and validate pattern components.
 
         Raises:
             ValueError: If variables before and after arrow don't match
+
         """
         if not self._pattern_match:
-            raise ValidationError("Pattern must be validated before parsing")
+            msg = "Pattern must be validated before parsing"
+            raise ValidationError(msg)
 
         self._before_arrow = self._pattern_match.group(1).split()
         self._in_parentheses = self._pattern_match.group(2).split()
@@ -127,7 +133,8 @@ class MRIOFields:
 
         post_arrow_vars = set(self._in_parentheses + self._after_parentheses)
         if post_arrow_vars != set(self._before_arrow):
-            raise ValueError("Variables after '->' must match variables before it")
+            msg = "Variables after '->' must match variables before it"
+            raise ValueError(msg)
 
 
 class WriteParamsDefaults(TypedDict, total=False):
@@ -153,8 +160,7 @@ class WriteParamsDefaults(TypedDict, total=False):
 
 @dataclass
 class WriteParams:
-    """
-    Configuration parameters for writing raster data in MRIO format.
+    """Configuration parameters for writing raster data in MRIO format.
 
     This class handles both optional and mandatory parameters for writing
     multi-dimensional raster data, with validation of required fields.
@@ -172,6 +178,7 @@ class WriteParams:
         ...     'md:pattern': 'time band h w -> (time band) h w',
         ...     'md:coordinates': {'time': [1, 2], 'band': ['red', 'green']}
         ... })
+
     """
 
     DEFAULTS: ClassVar[WriteParamsDefaults] = {
@@ -205,27 +212,24 @@ class WriteParams:
         self._validate_mandatory_fields()
 
     def _validate_mandatory_fields(self) -> None:
-        """
-        Validate that all mandatory fields are provided.
+        """Validate that all mandatory fields are provided.
 
         Raises:
             ValidationError: If any mandatory field is missing
+
         """
         mandatory_fields = ["crs", "transform", "md:pattern", "md:coordinates"]
-        missing_fields = [
-            field for field in mandatory_fields if self.merged_params.get(field) is None
-        ]
+        missing_fields = [field for field in mandatory_fields if self.merged_params.get(field) is None]
 
         if missing_fields:
-            raise ValidationError(
-                f"Mandatory fields missing: {', '.join(missing_fields)}"
-            )
+            msg = f"Mandatory fields missing: {', '.join(missing_fields)}"
+            raise ValidationError(msg)
 
     def to_dict(self) -> dict[str, Any]:
-        """
-        Convert parameters to dictionary format.
+        """Convert parameters to dictionary format.
 
         Returns:
             Dictionary of all parameters with their values
+
         """
         return self.merged_params
