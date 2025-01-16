@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from re import Pattern
-from typing import Any, ClassVar, Dict, List, Optional, TypedDict
+from typing import Any, ClassVar, TypedDict
 
 from mrio.errors import ValidationError
 from mrio.types import JSONValue
@@ -34,7 +34,7 @@ class Coordinates:
         ... })
     """
 
-    values: Dict[str, List[JSONValue]]
+    values: dict[str, list[JSONValue]]
 
     def __post_init__(self) -> None:
         """Validate coordinates after initialization."""
@@ -74,11 +74,11 @@ class MRIOFields:
 
     pattern: str
     coordinates: Coordinates
-    attributes: Optional[Dict[str, JSONValue]] = None
+    attributes: dict[str, JSONValue] | None = None
 
     # Class variable for pattern validation
     _PATTERN_REGEX: ClassVar[str] = r"^([\w\s]+)\s*->\s*\(([\w\s]+)\)\s+([\w\s]+)$"
-    _pattern_match: Optional[Pattern[str]] = field(init=False, default=None)
+    _pattern_match: Pattern[str] | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         """Validate and parse the pattern after initialization."""
@@ -140,15 +140,15 @@ class WriteParamsDefaults(TypedDict, total=False):
     tiled: bool
     blockxsize: int
     blockysize: int
-    nodata: Optional[float]
+    nodata: float | None
     count: int
-    width: Optional[int]
-    height: Optional[int]
+    width: int | None
+    height: int | None
     crs: Any
     transform: Any
-    md_pattern: Optional[str]
-    md_coordinates: Optional[Dict[str, List[JSONValue]]]
-    md_attributes: Dict[str, JSONValue]
+    md_pattern: str | None
+    md_coordinates: dict[str, list[JSONValue]] | None
+    md_attributes: dict[str, JSONValue]
 
 
 @dataclass
@@ -196,8 +196,8 @@ class WriteParams:
         "dtype": None,
     }
 
-    params: Dict[str, Any] = field(default_factory=dict)
-    merged_params: Dict[str, Any] = field(init=False)
+    params: dict[str, Any] = field(default_factory=dict)
+    merged_params: dict[str, Any] = field(init=False)
 
     def __post_init__(self) -> None:
         """Merge and validate parameters after initialization."""
@@ -221,7 +221,7 @@ class WriteParams:
                 f"Mandatory fields missing: {', '.join(missing_fields)}"
             )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert parameters to dictionary format.
 

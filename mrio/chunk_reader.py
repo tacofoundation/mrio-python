@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import rasterio
@@ -51,10 +51,10 @@ class ChunkedReader:
             dataset: Source dataset implementing the DatasetProtocol interface
         """
         self.dataset = dataset
-        self.last_query: Optional[Tuple[DimensionFilter, Tuple[slice, slice]]] = None
-        self.new_height: Optional[int] = None
-        self.new_width: Optional[int] = None
-        self.new_count: Optional[int] = None
+        self.last_query: tuple[DimensionFilter, tuple[slice, slice]] | None = None
+        self.new_height: int | None = None
+        self.new_width: int | None = None
+        self.new_count: int | None = None
 
     @staticmethod
     def _filter_dimensions(
@@ -220,7 +220,7 @@ class ChunkedReader:
 
     def __getitem__(
         self, key: DimensionFilter
-    ) -> Tuple[NDArray[Any], Tuple[Coordinates, CoordinatesLen]]:
+    ) -> tuple[NDArray[Any], tuple[Coordinates, CoordinatesLen]]:
         """
         Perform optimized partial read operation.
 

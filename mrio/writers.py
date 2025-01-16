@@ -8,7 +8,7 @@ import json
 import math
 from itertools import product
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import rasterio as rio
 import xarray as xr
@@ -61,7 +61,7 @@ class DatasetWriter:
         self.md_kwargs = None
         self._initialized = False
 
-    def _infer_parameters(self, data: DataArray) -> Dict[str, Any]:
+    def _infer_parameters(self, data: DataArray) -> dict[str, Any]:
         """
         Infer missing parameters from input data.
 
@@ -90,7 +90,7 @@ class DatasetWriter:
 
         return inferred
 
-    def _initialize_write_mode(self, data: Optional[DataArray] = None) -> None:
+    def _initialize_write_mode(self, data: DataArray | None = None) -> None:
         """
         Initialize write mode and process metadata parameters.
 
@@ -198,7 +198,7 @@ class DatasetWriter:
 
         self._file.update_tags(MD_METADATA=json.dumps(md_metadata))
 
-    def _generate_band_identifiers(self) -> List[str]:
+    def _generate_band_identifiers(self) -> list[str]:
         """
         Generate unique identifiers for each band.
 

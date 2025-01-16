@@ -1,5 +1,5 @@
 """
-MRIO (Multi-dimensional Raster I/O) is a Python package for reading and writing 
+MRIO (Multi-dimensional Raster I/O) is a Python package for reading and writing
 multi-dimensional and standard GeoTIFF files.
 
 This package extends rasterio with multi-dimensional data support and provides a simple
@@ -79,7 +79,7 @@ def open(
 
 def open(
     file_path: PathLike, mode: str = Mode.READ, engine: str = "xarray", **kwargs: Any
-) -> Union[DatasetReader, DatasetWriter]:
+) -> DatasetReader | DatasetWriter:
     """
     Open a dataset for reading or writing with enhanced multi-dimensional support.
 
@@ -176,35 +176,35 @@ def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
 
 # Export commonly used rasterio functions and classes
 __all__ = [
-    # Core functionality
-    "open",
-    "read",
-    "write",
-    "Env",
-    "band",
+    "CRS",
+    "Affine",
+    "DataArray",
     "DatasetReader",
     "DatasetWriter",
-    "MemoryFile",
-    # IO and Windows
-    "Window",
-    "io",
-    "windows",
-    # Transform and CRS
-    "transform",
-    "Affine",
-    "from_bounds",
-    "from_origin",
-    "from_gcps",
-    "CRS",
-    "crs",
-    # Profiles and errors
-    "Profile",
     "DefaultGTiffProfile",
-    "profiles",
-    "errors",
+    "Env",
+    "MemoryFile",
     # Types
     "PathLike",
-    "DataArray",
+    # Profiles and errors
+    "Profile",
+    # IO and Windows
+    "Window",
     # Version
     "__version__",
+    "band",
+    "crs",
+    "errors",
+    "from_bounds",
+    "from_gcps",
+    "from_origin",
+    "io",
+    # Core functionality
+    "open",
+    "profiles",
+    "read",
+    # Transform and CRS
+    "transform",
+    "windows",
+    "write",
 ]

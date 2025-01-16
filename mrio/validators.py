@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import warnings
-from typing import List, Optional, Set
 
 import rasterio as rio
 from rasterio.errors import RasterioError
@@ -24,15 +23,15 @@ from mrio.types import MetadataDict, PathLike
 
 # Constants
 MD_METADATA_KEY = "MD_METADATA"
-MGEOTIFF_REQUIRED_FIELDS: Set[str] = {"md:pattern", "md:coordinates"}
-TGEOTIFF_REQUIRED_FIELDS: Set[str] = MGEOTIFF_REQUIRED_FIELDS
-TGEOTIFF_REQUIRED_ATTRS: Set[str] = {"md:time_start", "md:id"}
+MGEOTIFF_REQUIRED_FIELDS: set[str] = {"md:pattern", "md:coordinates"}
+TGEOTIFF_REQUIRED_FIELDS: set[str] = MGEOTIFF_REQUIRED_FIELDS
+TGEOTIFF_REQUIRED_ATTRS: set[str] = {"md:time_start", "md:id"}
 
 
 def check_metadata(
     path: PathLike,
-    required_fields: List[str],
-    required_attributes: Optional[List[str]] = None,
+    required_fields: list[str],
+    required_attributes: list[str] | None = None,
     strict: bool = True,
 ) -> bool:
     """
@@ -127,7 +126,7 @@ def is_tgeotiff(path: PathLike, strict: bool = False) -> bool:
     )
 
 
-def _load_metadata(path: PathLike) -> Optional[MetadataDict]:
+def _load_metadata(path: PathLike) -> MetadataDict | None:
     """Load and parse metadata from a GeoTIFF file."""
     try:
         with rio.open(path) as src:
@@ -141,14 +140,14 @@ def _load_metadata(path: PathLike) -> Optional[MetadataDict]:
         raise ValueError(f"Invalid metadata JSON: {e}")
 
 
-def _get_missing_fields(metadata: MetadataDict, required_fields: List[str]) -> Set[str]:
+def _get_missing_fields(metadata: MetadataDict, required_fields: list[str]) -> set[str]:
     """Get set of missing required fields from metadata."""
     return set(required_fields) - set(metadata.keys())
 
 
 def _get_missing_attributes(
-    metadata: MetadataDict, required_attrs: List[str]
-) -> Set[str]:
+    metadata: MetadataDict, required_attrs: list[str]
+) -> set[str]:
     """Get set of missing required attributes from metadata."""
     attributes = metadata.get("md:attributes", {})
     return set(required_attrs) - set(attributes.keys())
@@ -158,4 +157,4 @@ def _handle_error(message: str, strict: bool) -> None:
     """Handle validation errors based on strict mode."""
     if strict:
         raise ValueError(message)
-    warnings.warn(message)
+    warnings.warn(message, stacklevel=2)

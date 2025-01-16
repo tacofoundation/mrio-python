@@ -1,15 +1,15 @@
 """
 MRIO Dataset Protocols
 
-This module defines the protocols for reader and writer operations in the mrio 
-package. It specifies the required interfaces for dataset 
+This module defines the protocols for reader and writer operations in the mrio
+package. It specifies the required interfaces for dataset
 implementations that handle multi-dimensional GeoTIFF files.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Protocol, Tuple, Union, runtime_checkable
+from typing import Any, Literal, Protocol, Union, runtime_checkable
 
 import numpy as np
 import xarray as xr
@@ -18,9 +18,9 @@ from rasterio.crs import CRS
 from rasterio.transform import Affine
 
 # Type aliases for better readability
-Metadata = Dict[str, Any]
-Profile = Dict[str, Any]
-Coords = Dict[str, Any]
+Metadata = dict[str, Any]
+Profile = dict[str, Any]
+Coords = dict[str, Any]
 DataArray = Union[np.ndarray, xr.DataArray]
 
 
@@ -36,12 +36,12 @@ class DatasetReaderProtocol(Protocol):
     file_path: Path
     engine: Literal["numpy", "xarray"]
     profile: Profile
-    meta: Dict[str, Any]
-    md_meta: Optional[Dict[str, Any]]  # MRIOFields type
+    meta: dict[str, Any]
+    md_meta: dict[str, Any] | None  # MRIOFields type
     coords: Coords
     dims: list
-    attrs: Dict[str, Any]
-    shape: Tuple[int, ...]
+    attrs: dict[str, Any]
+    shape: tuple[int, ...]
     size: int
 
     # Geometric properties
@@ -50,13 +50,13 @@ class DatasetReaderProtocol(Protocol):
     crs: CRS
     transform: Affine
     count: int
-    bounds: Tuple[float, float, float, float]
+    bounds: tuple[float, float, float, float]
 
     # Data properties
     dtype: Any
-    nodata: Optional[float]
+    nodata: float | None
 
-    def read(self, *args: Any, **kwargs: Any) -> Union[NDArray, xr.DataArray]:
+    def read(self, *args: Any, **kwargs: Any) -> NDArray | xr.DataArray:
         """
         Read data from the dataset.
 
@@ -86,7 +86,7 @@ class DatasetReaderProtocol(Protocol):
         """Close the dataset and free resources."""
         ...
 
-    def tags(self) -> Dict[str, str]:
+    def tags(self) -> dict[str, str]:
         """
         Get the dataset's tags/metadata.
 
@@ -95,7 +95,7 @@ class DatasetReaderProtocol(Protocol):
         """
         ...
 
-    def __getitem__(self, key: Any) -> Union[NDArray, xr.DataArray]:
+    def __getitem__(self, key: Any) -> NDArray | xr.DataArray:
         """
         Support array-like indexing.
 
@@ -118,8 +118,8 @@ class DatasetWriterProtocol(Protocol):
     """
 
     file_path: Path
-    args: Tuple[Any, ...]
-    kwargs: Dict[str, Any]
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
     md_kwargs: Any  # MRIOFields type
 
     def write(self, data: DataArray) -> None:
@@ -158,7 +158,7 @@ class DatasetWriterProtocol(Protocol):
         """
         ...
 
-    def _generate_metadata(self) -> Dict[str, Any]:
+    def _generate_metadata(self) -> dict[str, Any]:
         """
         Generate metadata dictionary.
 

@@ -11,7 +11,7 @@ import json
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Literal, Optional, Union
+from typing import Any, ClassVar, Literal, Union
 
 import numpy as np
 import rasterio as rio
@@ -23,9 +23,9 @@ from mrio.chunk_reader import ChunkedReader
 from mrio.slice_transformer import SliceTransformer
 
 # Type aliases for better readability
-MetadataDict = Dict[str, Any]
-Profile = Dict[str, Any]
-Coords = Dict[str, List[Any]]
+MetadataDict = dict[str, Any]
+Profile = dict[str, Any]
+Coords = dict[str, list[Any]]
 DataArray = Union[NDArray[Any], xr.DataArray]
 
 # Constants
@@ -85,7 +85,7 @@ class DatasetReader:
     )
 
     # Class variables
-    UNITS: ClassVar[List[str]] = ["B", "KB", "MB", "GB", "TB"]
+    UNITS: ClassVar[list[str]] = ["B", "KB", "MB", "GB", "TB"]
     DEFAULT_ENGINE: ClassVar[str] = "xarray"
 
     def __init__(
@@ -173,7 +173,7 @@ class DatasetReader:
         self.size = np.prod(self.shape) * np.dtype(self.dtype[0]).itemsize
 
     @lru_cache(maxsize=1)
-    def _fast_load_metadata(self) -> Optional[MetadataDict]:
+    def _fast_load_metadata(self) -> MetadataDict | None:
         """
         Load and cache metadata with optimizations.
 
@@ -193,7 +193,7 @@ class DatasetReader:
             return metadata_dict
 
         except Exception as e:
-            warnings.warn(f"Metadata loading failed: {e}")
+            warnings.warn(f"Metadata loading failed: {e}", stacklevel=2)
             return None
 
     def _enhance_metadata(self, metadata_dict: MetadataDict) -> None:
@@ -276,7 +276,7 @@ class DatasetReader:
         return data
 
     @lru_cache(maxsize=128)
-    def tags(self) -> Dict[str, str]:
+    def tags(self) -> dict[str, str]:
         """
         Get cached dataset tags.
 

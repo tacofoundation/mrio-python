@@ -14,7 +14,7 @@ Example:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 if TYPE_CHECKING:
     import numpy as np
@@ -38,7 +38,7 @@ JSONValue = Union[
     None,  # None/null values
 ]
 
-MetadataDict = Dict[str, Any]  # Generic metadata dictionary
+MetadataDict = dict[str, Any]  # Generic metadata dictionary
 
 # Path handling
 # ------------
@@ -46,8 +46,8 @@ PathLike = Union[str, Path]  # File path types
 
 # Coordinate and dimension types
 # ----------------------------
-Coordinates = Dict[str, List[Any]]  # Coordinate values by dimension
-CoordinatesLen = Dict[str, int]  # Length of each coordinate dimension
+Coordinates = dict[str, list[Any]]  # Coordinate values by dimension
+CoordinatesLen = dict[str, int]  # Length of each coordinate dimension
 
 # Slice and indexing types
 # -----------------------
@@ -58,28 +58,28 @@ Slice = Union[
     tuple,  # Tuple of indices
 ]
 
-DimensionFilter = List[Slice]  # List of slice operations
+DimensionFilter = list[Slice]  # List of slice operations
 
 # Transformer types
 # ---------------
 FilterCondition = Union[
     slice,  # Single slice
     int,  # Single integer
-    List[int],  # List of integers
-    Tuple[int, ...],  # Tuple of integers
+    list[int],  # List of integers
+    tuple[int, ...],  # Tuple of integers
 ]
 
 DimKey = Union[
     slice,  # Single slice
     int,  # Single integer
-    Tuple[Any, ...],  # Tuple of any values
-    List[int],  # List of integers
+    tuple[Any, ...],  # Tuple of any values
+    list[int],  # List of integers
     Any,  # Any other type
 ]
 
-SliceTuple = Tuple[
-    Union[slice, Tuple[slice, ...]], ...  # Single slice  # Tuple of slices
+SliceTuple = tuple[
+    Union[slice, tuple[slice, ...]], ...  # Single slice  # Tuple of slices
 ]
 
-IntList = List[int]  # List of integers
-NestedKey = Tuple[IntList, int]  # (list of integers, dimension) pair
+IntList = list[int]  # List of integers
+NestedKey = tuple[IntList, int]  # (list of integers, dimension) pair

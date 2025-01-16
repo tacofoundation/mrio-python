@@ -8,7 +8,7 @@ multi-dimensional arrays.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Tuple, cast
+from typing import Any, cast
 
 from mrio.types import DimKey, NestedKey, SliceTuple
 
@@ -50,7 +50,7 @@ class SliceTransformer:
             raise ValueError("ndim must be a positive integer")
         self.ndim = ndim
 
-    def transform(self, key: DimKey, dim: Optional[int] = None) -> SliceTuple:
+    def transform(self, key: DimKey, dim: int | None = None) -> SliceTuple:
         """
         Transform input key into a tuple of slices.
 
@@ -137,7 +137,7 @@ class SliceTransformer:
         result.extend(slice(None) for _ in range(self.ndim - 1))
         return tuple(result)
 
-    def _handle_tuple_case(self, key: Tuple[Any, ...]) -> SliceTuple:
+    def _handle_tuple_case(self, key: tuple[Any, ...]) -> SliceTuple:
         """Handle tuple input with possible ellipsis."""
         result = []
         found_ellipsis = False
