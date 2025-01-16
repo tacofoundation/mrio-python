@@ -22,18 +22,11 @@ from __future__ import annotations
 
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, Literal, TypeVar, Union, overload
-
-import numpy as np
-import xarray as xr
+from typing import Any, Literal, TypeVar, overload
 
 # Core rasterio imports
-from rasterio import Env, band, crs, errors, io, profiles, transform, windows
-from rasterio import open as rasterio_open
+from rasterio import band, crs, io, profiles, transform, windows
 from rasterio.crs import CRS
-from rasterio.io import DatasetReader as RasterioReader
-from rasterio.io import DatasetWriter as RasterioWriter
-from rasterio.io import MemoryFile
 from rasterio.profiles import DefaultGTiffProfile, Profile
 from rasterio.transform import Affine, from_bounds, from_gcps, from_origin
 from rasterio.windows import Window
@@ -187,35 +180,28 @@ def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
 
 # Export commonly used rasterio functions and classes
 __all__ = [
+    # General rasterio imports
+    "DefaultGTiffProfile",
+    "Profile",
+    "profiles",
+    "band",
+    # IO and Windows
     "CRS",
     "Affine",
-    "DataArray",
-    "DatasetReader",
-    "DatasetWriter",
-    "DefaultGTiffProfile",
-    "Env",
-    "MemoryFile",
-    # Types
-    "PathLike",
-    # Profiles and errors
-    "Profile",
-    # IO and Windows
+    "io",
     "Window",
-    # Version
-    "__version__",
-    "band",
+    "transform",
+    "windows",
     "crs",
-    "errors",
     "from_bounds",
     "from_gcps",
     "from_origin",
-    "io",
+    # Version
+    "__version__",
     # Core functionality
     "open",
-    "profiles",
     "read",
-    # Transform and CRS
-    "transform",
-    "windows",
     "write",
+    "is_mgeotiff",
+    "is_tgeotiff"
 ]
