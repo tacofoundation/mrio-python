@@ -9,8 +9,7 @@ implementations that handle multi-dimensional GeoTIFF files.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import (Any, Dict, Literal, Optional, Protocol, Tuple, Union,
-                    runtime_checkable)
+from typing import Any, Dict, Literal, Optional, Protocol, Tuple, Union, runtime_checkable
 
 import numpy as np
 import xarray as xr

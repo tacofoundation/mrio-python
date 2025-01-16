@@ -20,7 +20,7 @@ from typing import List, Optional, Set
 import rasterio as rio
 from rasterio.errors import RasterioError
 
-from mrio.types import JSONValue, MetadataDict, PathLike
+from mrio.types import MetadataDict, PathLike
 
 # Constants
 MD_METADATA_KEY = "MD_METADATA"
@@ -78,7 +78,7 @@ def check_metadata(
         return True
 
     except Exception as e:
-        _handle_error(f"Validation failed: {str(e)}", strict)
+        _handle_error(f"Validation failed: {e!s}", strict)
         return False
 
 

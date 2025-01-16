@@ -11,7 +11,7 @@ import json
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import rasterio as rio
@@ -58,30 +58,30 @@ class DatasetReader:
     """
 
     __slots__ = (
-        "file_path",
-        "args",
-        "kwargs",
         "_file",
-        "profile",
-        "meta",
-        "width",
-        "height",
-        "crs",
-        "transform",
-        "count",
-        "indexes",
-        "window",
+        "args",
+        "attrs",
         "bounds",
+        "coords",
+        "count",
+        "crs",
+        "dims",
+        "dtype",
+        "engine",
+        "file_path",
+        "height",
+        "indexes",
+        "kwargs",
+        "md_meta",
+        "meta",
+        "nodata",
+        "profile",
         "res",
         "shape",
-        "dtype",
-        "nodata",
-        "md_meta",
-        "coords",
-        "dims",
-        "attrs",
         "size",
-        "engine",
+        "transform",
+        "width",
+        "window",
     )
 
     # Class variables
@@ -115,7 +115,7 @@ class DatasetReader:
         try:
             self._file = rio.open(self.file_path, "r", *args, **kwargs)
         except Exception as e:
-            raise IOError(f"Failed to open {file_path}: {e}")
+            raise OSError(f"Failed to open {file_path}: {e}")
 
         self._fast_initialize()
 

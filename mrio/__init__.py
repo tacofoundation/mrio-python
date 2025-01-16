@@ -26,10 +26,10 @@ from typing import Any, Literal, TypeVar, Union, overload
 
 import numpy as np
 import xarray as xr
+
 # Core rasterio imports
-from rasterio import Env, band, crs, errors, io
+from rasterio import Env, band, crs, errors, io, profiles, transform, windows
 from rasterio import open as rasterio_open
-from rasterio import profiles, transform, windows
 from rasterio.crs import CRS
 from rasterio.io import DatasetReader as RasterioReader
 from rasterio.io import DatasetWriter as RasterioWriter

@@ -8,7 +8,8 @@ with support for partial reading, dimension filtering, and metadata handling.
 from __future__ import annotations
 
 import math
-from typing import Any, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any, Optional, Tuple
 
 import numpy as np
 import rasterio
@@ -19,8 +20,7 @@ from rasterio.windows import Window
 
 from mrio.errors import MRIOError
 from mrio.protocol import DatasetReaderProtocol
-from mrio.types import (Coordinates, CoordinatesLen, DimensionFilter,
-                        FilterCondition, MetadataDict)
+from mrio.types import Coordinates, CoordinatesLen, DimensionFilter, FilterCondition, MetadataDict
 
 
 class ChunkedReader:

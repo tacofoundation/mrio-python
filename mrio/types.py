@@ -16,8 +16,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple, TypeVar, Union
 
-from typing_extensions import TypeAlias
-
 if TYPE_CHECKING:
     import numpy as np
     import xarray as xr

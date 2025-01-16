@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Dict, List, Optional, Pattern, TypedDict
+from re import Pattern
+from typing import Any, ClassVar, Dict, List, Optional, TypedDict
 
 from mrio.errors import ValidationError
 from mrio.types import JSONValue

@@ -8,9 +8,8 @@ import json
 import math
 from itertools import product
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
-import numpy as np
 import rasterio as rio
 import xarray as xr
 from einops import rearrange
@@ -39,7 +38,7 @@ class DatasetWriter:
         ...     writer.write(data)
     """
 
-    __slots__ = ("file_path", "args", "kwargs", "_file", "md_kwargs", "_initialized")
+    __slots__ = ("_file", "_initialized", "args", "file_path", "kwargs", "md_kwargs")
 
     def __init__(self, file_path: PathLike, *args: Any, **kwargs: Any) -> None:
         """
@@ -133,7 +132,7 @@ class DatasetWriter:
             try:
                 self._file = rio.open(self.file_path, "w", *self.args, **self.kwargs)
             except Exception as e:
-                raise IOError(f"Failed to open {self.file_path} for writing: {e}")
+                raise OSError(f"Failed to open {self.file_path} for writing: {e}")
 
         self._initialized = True
 
