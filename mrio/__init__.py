@@ -114,7 +114,7 @@ def open(
     """
     if not isinstance(file_path, (str, Path)):
         msg = "file_path must be a string or Path object"
-        raise ValueError(msg)
+        raise TypeError(msg)
 
     file_path = Path(file_path)
 
@@ -177,31 +177,26 @@ def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
     writer.write(data)
     return writer
 
-
-# Export commonly used rasterio functions and classes
+# Export public symbols
 __all__ = [
-    # General rasterio imports
-    "DefaultGTiffProfile",
-    "Profile",
-    "profiles",
-    "band",
-    # IO and Windows
     "CRS",
     "Affine",
-    "io",
+    "DefaultGTiffProfile",
+    "Profile",
     "Window",
-    "transform",
-    "windows",
+    "__version__",
+    "band",
     "crs",
     "from_bounds",
     "from_gcps",
     "from_origin",
-    # Version
-    "__version__",
-    # Core functionality
-    "open",
-    "read",
-    "write",
+    "io",
     "is_mgeotiff",
-    "is_tgeotiff"
+    "is_tgeotiff",
+    "open",
+    "profiles",
+    "read",
+    "transform",
+    "windows",
+    "write",
 ]
