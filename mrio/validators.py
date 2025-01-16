@@ -1,82 +1,162 @@
+"""
+MRIO Validators Module
+
+This module provides validation functions for Multi-dimensional GeoTIFF (MGeoTIFF) and
+Temporal GeoTIFF (TGeoTIFF) files. It checks the presence and validity of required
+metadata fields and attributes.
+
+Example:
+    >>> from mrio.validators import is_mgeotiff, is_tgeotiff
+    >>> if is_mgeotiff("example.tif"):
+    ...     print("Valid MGeoTIFF file")
+"""
+from __future__ import annotations
+
 import json
+import warnings
+from typing import List, Optional, Set
 
 import rasterio as rio
+from rasterio.errors import RasterioError
+
+from mrio.types import PathLike, JSONValue, MetadataDict
+
+# Constants
+MD_METADATA_KEY = "MD_METADATA"
+MGEOTIFF_REQUIRED_FIELDS: Set[str] = {"md:pattern", "md:coordinates"}
+TGEOTIFF_REQUIRED_FIELDS: Set[str] = MGEOTIFF_REQUIRED_FIELDS
+TGEOTIFF_REQUIRED_ATTRS: Set[str] = {"md:time_start", "md:id"}
 
 
 def check_metadata(
-    path: str, required_fields: list, required_attributes: list = None
+    path: PathLike,
+    required_fields: List[str],
+    required_attributes: Optional[List[str]] = None,
+    strict: bool = True
 ) -> bool:
     """
-    Check if a GeoTIFF file contains valid MD_METADATA with specified fields and attributes.
+    Validate GeoTIFF metadata against required fields and attributes.
 
     Args:
-        path (str): Path to the GeoTIFF file.
-        required_fields (list): List of fields required in the top-level metadata.
-        required_attributes (list, optional): List of attributes required within `md:attributes`.
+        path: Path to the GeoTIFF file
+        required_fields: List of fields that must be present in top-level metadata
+        required_attributes: Optional list of attributes required in md:attributes
+        strict: If True, raises exceptions for validation failures; if False, returns False
 
     Returns:
-        bool: True if the metadata is valid and contains all required fields and attributes, False otherwise.
+        True if metadata is valid and contains all required fields/attributes
+
+    Raises:
+        ValueError: If metadata is invalid and strict=True
+        RasterioError: If file cannot be opened and strict=True
+        json.JSONDecodeError: If metadata JSON is invalid and strict=True
+
+    Example:
+        >>> check_metadata("data.tif", ["md:pattern"], ["time_start"])
+        True
     """
+    try:
+        metadata = _load_metadata(path)
+        if metadata is None:
+            _handle_error("MD_METADATA not found", strict)
+            return False
+
+        # Validate required fields
+        missing_fields = _get_missing_fields(metadata, required_fields)
+        if missing_fields:
+            _handle_error(f"Missing required fields: {missing_fields}", strict)
+            return False
+
+        # Validate required attributes if specified
+        if required_attributes:
+            missing_attrs = _get_missing_attributes(metadata, required_attributes)
+            if missing_attrs:
+                _handle_error(f"Missing required attributes: {missing_attrs}", strict)
+                return False
+
+        return True
+
+    except Exception as e:
+        _handle_error(f"Validation failed: {str(e)}", strict)
+        return False
+
+
+def is_mgeotiff(path: PathLike, strict: bool = False) -> bool:
+    """
+    Check if a file is a valid Multi-dimensional GeoTIFF (MGeoTIFF).
+
+    MGeoTIFF files must contain md:pattern and md:coordinates in their metadata.
+
+    Args:
+        path: Path to the GeoTIFF file
+        strict: If True, raises exceptions for validation failures
+
+    Returns:
+        True if file is a valid MGeoTIFF
+
+    Example:
+        >>> is_mgeotiff("multidim.tif")
+        True
+    """
+    return check_metadata(
+        path,
+        list(MGEOTIFF_REQUIRED_FIELDS),
+        strict=strict
+    )
+
+
+def is_tgeotiff(path: PathLike, strict: bool = False) -> bool:
+    """
+    Check if a file is a valid Temporal GeoTIFF (TGeoTIFF).
+
+    TGeoTIFF files must contain both MGeoTIFF fields and temporal attributes.
+
+    Args:
+        path: Path to the GeoTIFF file
+        strict: If True, raises exceptions for validation failures
+
+    Returns:
+        True if file is a valid TGeoTIFF
+
+    Example:
+        >>> is_tgeotiff("temporal.tif")
+        True
+    """
+    return check_metadata(
+        path,
+        list(TGEOTIFF_REQUIRED_FIELDS),
+        list(TGEOTIFF_REQUIRED_ATTRS),
+        strict=strict
+    )
+
+
+def _load_metadata(path: PathLike) -> Optional[MetadataDict]:
+    """Load and parse metadata from a GeoTIFF file."""
     try:
         with rio.open(path) as src:
             tags = src.tags()
-    except Exception as e:
-        print(f"Failed to open file: {e}")
-        return False
-
-    # Check for MD_METADATA
-    if "MD_METADATA" not in tags:
-        print("MD_METADATA not found")
-        return False
-
-    # Validate JSON structure of MD_METADATA
-    try:
-        metadata = json.loads(tags["MD_METADATA"])
-    except json.JSONDecodeError:
-        print("An error occurred while parsing MD_METADATA")
-        return False
-
-    # Check for required fields
-    if not all(field in metadata for field in required_fields):
-        print(f"Missing required fields in MD_METADATA: {required_fields}")
-        return False
-
-    # Check for required attributes if specified
-    if required_attributes:
-        attributes = metadata.get("md:attributes", {})
-        if not all(attr in attributes for attr in required_attributes):
-            print(
-                f"Missing required attributes in md:attributes: {required_attributes}"
-            )
-            return False
-
-    return True
+            if MD_METADATA_KEY not in tags:
+                return None
+            return json.loads(tags[MD_METADATA_KEY])
+    except RasterioError as e:
+        raise ValueError(f"Failed to open file: {e}")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid metadata JSON: {e}")
 
 
-def is_mgeotiff(path: str) -> bool:
-    """
-    Check if a GeoTIFF file is a valid MGeoTIFF.
-
-    Args:
-        path (str): Path to the GeoTIFF file.
-
-    Returns:
-        bool: True if the file is a valid MGeoTIFF, False otherwise.
-    """
-    required_fields = ["md:pattern", "md:coordinates"]
-    return check_metadata(path, required_fields)
+def _get_missing_fields(metadata: MetadataDict, required_fields: List[str]) -> Set[str]:
+    """Get set of missing required fields from metadata."""
+    return set(required_fields) - set(metadata.keys())
 
 
-def is_tgeotiff(path: str) -> bool:
-    """
-    Check if a GeoTIFF file is a valid TGeoTIFF.
+def _get_missing_attributes(metadata: MetadataDict, required_attrs: List[str]) -> Set[str]:
+    """Get set of missing required attributes from metadata."""
+    attributes = metadata.get("md:attributes", {})
+    return set(required_attrs) - set(attributes.keys())
 
-    Args:
-        path (str): Path to the GeoTIFF file.
 
-    Returns:
-        bool: True if the file is a valid TGeoTIFF, False otherwise.
-    """
-    required_fields = ["md:pattern", "md:coordinates"]
-    required_attributes = ["md:time_start", "md:id"]
-    return check_metadata(path, required_fields, required_attributes)
+def _handle_error(message: str, strict: bool) -> None:
+    """Handle validation errors based on strict mode."""
+    if strict:
+        raise ValueError(message)
+    warnings.warn(message)
