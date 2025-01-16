@@ -4,19 +4,20 @@ MRIO Dataset Reader Module
 Provides optimized reading capabilities for multi-dimensional GeoTIFF files with
 metadata handling and lazy loading support. Supports both numpy and xarray outputs.
 """
+
 from __future__ import annotations
 
 import json
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional, Literal, Tuple, List, Union, ClassVar
+from typing import Any, ClassVar, Dict, List, Literal, Optional, Tuple, Union
 
-import rasterio as rio
 import numpy as np
+import rasterio as rio
 import xarray as xr
-from numpy.typing import NDArray
 from einops import rearrange
+from numpy.typing import NDArray
 
 from mrio.chunk_reader import ChunkedReader
 from mrio.slice_transformer import SliceTransformer
@@ -34,11 +35,11 @@ MD_METADATA_KEY: str = "MD_METADATA"
 class DatasetReader:
     """
     Optimized reader for multi-dimensional GeoTIFF files with metadata handling.
-    
+
     This class provides efficient reading capabilities with metadata handling,
     coordinate management, and lazy loading support. It can output data as either
     numpy arrays or xarray DataArrays.
-    
+
     Attributes:
         file_path: Path to the dataset file
         engine: Output format ('numpy' or 'xarray')
@@ -84,15 +85,15 @@ class DatasetReader:
     )
 
     # Class variables
-    UNITS: ClassVar[List[str]] = ['B', 'KB', 'MB', 'GB', 'TB']
+    UNITS: ClassVar[List[str]] = ["B", "KB", "MB", "GB", "TB"]
     DEFAULT_ENGINE: ClassVar[str] = "xarray"
 
     def __init__(
-        self, 
-        file_path: Path, 
+        self,
+        file_path: Path,
         engine: Literal["numpy", "xarray"] = DEFAULT_ENGINE,
-        *args: Any, 
-        **kwargs: Any
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         """
         Initialize DatasetReader with optimized metadata handling.
@@ -127,10 +128,10 @@ class DatasetReader:
 
         # Load geometry properties
         self._load_geometry_properties()
-        
+
         # Load data properties
         self._load_data_properties()
-        
+
         # Load metadata properties
         self._load_metadata_properties()
 
@@ -168,7 +169,7 @@ class DatasetReader:
             self.shape = (*coord_lens, self.height, self.width)
         else:
             self.shape = (self.count, self.height, self.width)
-        
+
         self.size = np.prod(self.shape) * np.dtype(self.dtype[0]).itemsize
 
     @lru_cache(maxsize=1)
@@ -178,7 +179,7 @@ class DatasetReader:
 
         Returns:
             Optional metadata dictionary with dimensions and coordinates
-            
+
         Warns:
             UserWarning: If metadata loading fails
         """
@@ -238,9 +239,7 @@ class DatasetReader:
 
         raw_data = self._file.read(*args, **kwargs)
         data = rearrange(
-            raw_data, 
-            self.md_meta["md:pattern"], 
-            **self.md_meta["md:coordinates_len"]
+            raw_data, self.md_meta["md:pattern"], **self.md_meta["md:coordinates_len"]
         )
 
         if self.engine == "xarray":
@@ -249,7 +248,7 @@ class DatasetReader:
                 dims=self.md_meta["md:dimensions"],
                 coords=self.md_meta["md:coordinates"],
                 attrs=self.md_meta.get("md:attributes"),
-                fastpath=False
+                fastpath=False,
             )
         return data
 
@@ -342,12 +341,11 @@ class DatasetReader:
                     f"{', '.join(map(str, value))}"
                 )
         return "\n".join(coords_repr)
-    
+
     def _repr_attributes(self, max_items: int = 6) -> str:
         """Format attribute representation."""
         attrs_repr = [
-            f"  {key}: {value}" 
-            for key, value in list(self.attrs.items())[:max_items]
+            f"  {key}: {value}" for key, value in list(self.attrs.items())[:max_items]
         ]
         if len(self.attrs) > max_items:
             attrs_repr.append(f"  ... ({len(self.attrs)-max_items} more)")
@@ -356,15 +354,15 @@ class DatasetReader:
     def __repr__(self) -> str:
         """
         Detailed string representation including size and coordinates.
-        
+
         Returns:
             Formatted string with dataset information
         """
         coords_repr = self._repr_coordinates(max_items=3)
         attrs_repr = self._repr_attributes(max_items=6)
         size_str = self._humanize_size(self.size)
-        
-        extra_dims = [f'{key}: {len(value)}' for key, value in self.coords.items()]
+
+        extra_dims = [f"{key}: {len(value)}" for key, value in self.coords.items()]
         spatial_dims = [f"y: {self.height}", f"x: {self.width}"]
         all_dims = ", ".join(extra_dims + spatial_dims)
 

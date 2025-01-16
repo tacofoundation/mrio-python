@@ -26,7 +26,6 @@ from typing import Any, Literal, TypeVar, Union, overload
 
 import numpy as np
 import xarray as xr
-
 # Core rasterio imports
 from rasterio import Env, band, crs, errors, io
 from rasterio import open as rasterio_open
@@ -186,12 +185,10 @@ __all__ = [
     "DatasetReader",
     "DatasetWriter",
     "MemoryFile",
-    
     # IO and Windows
     "Window",
     "io",
     "windows",
-    
     # Transform and CRS
     "transform",
     "Affine",
@@ -199,18 +196,15 @@ __all__ = [
     "from_origin",
     "from_gcps",
     "CRS",
-    "crs",    
-    
+    "crs",
     # Profiles and errors
     "Profile",
     "DefaultGTiffProfile",
     "profiles",
     "errors",
-    
     # Types
     "PathLike",
     "DataArray",
-
     # Version
     "__version__",
 ]

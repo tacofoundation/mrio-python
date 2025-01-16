@@ -4,6 +4,7 @@ ChunkedReader module for MRIO (Multi-Resolution I/O) package.
 This module provides optimized chunked reading capabilities for multi-dimensional GeoTIFF files,
 with support for partial reading, dimension filtering, and metadata handling.
 """
+
 from __future__ import annotations
 
 import math
@@ -11,21 +12,21 @@ from typing import Any, Optional, Sequence, Tuple
 
 import numpy as np
 import rasterio
-from einops import rearrange
 from affine import Affine
+from einops import rearrange
 from numpy.typing import NDArray
 from rasterio.windows import Window
 
 from mrio.errors import MRIOError
 from mrio.protocol import DatasetReaderProtocol
-from mrio.types import DimensionFilter, Coordinates, CoordinatesLen, MetadataDict, FilterCondition
-
+from mrio.types import (Coordinates, CoordinatesLen, DimensionFilter,
+                        FilterCondition, MetadataDict)
 
 
 class ChunkedReader:
     """
     Optimized implementation of multi-dimensional GeoTIFF reading with metadata handling.
-    
+
     This class provides efficient partial reading capabilities for multi-dimensional
     GeoTIFF files, handling both spatial and non-spatial dimensions. It supports
     dimension filtering, window-based reading, and maintains correct geospatial metadata.
@@ -57,8 +58,7 @@ class ChunkedReader:
 
     @staticmethod
     def _filter_dimensions(
-        dims: Sequence[int], 
-        filter_criteria: Sequence[FilterCondition]
+        dims: Sequence[int], filter_criteria: Sequence[FilterCondition]
     ) -> NDArray[np.uint32]:
         """
         Filter dimensions using vectorized operations for optimal performance.
@@ -105,13 +105,17 @@ class ChunkedReader:
             raise MRIOError("No query has been executed yet")
 
         row_slice, col_slice = self.last_query[1]
-        
+
         # Handle full slices
-        row_slice = row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
-        col_slice = col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
-        
+        row_slice = (
+            row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
+        )
+        col_slice = (
+            col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
+        )
+
         window = Window.from_slices(row_slice, col_slice)
-        
+
         # Update dimensions
         self.new_height = window.height
         self.new_width = window.width
@@ -132,9 +136,11 @@ class ChunkedReader:
             raise MRIOError("No query has been executed yet")
 
         query_conditions = self.last_query[0]
-        if not all(isinstance(cond, (slice, int, list, tuple)) for cond in query_conditions):
+        if not all(
+            isinstance(cond, (slice, int, list, tuple)) for cond in query_conditions
+        ):
             raise MRIOError("Filter criteria must be slice, int, list, or tuple")
-        
+
         coords = self.dataset.md_meta["md:coordinates"]
         dims = self.dataset.md_meta["md:dimensions"]
         new_coords: Coordinates = {}
@@ -149,13 +155,18 @@ class ChunkedReader:
                 updated_coord = [dim_coords[i] for i in cond]
             else:
                 raise MRIOError(f"Unsupported condition type: {type(cond)}")
-            
-            new_coords[dim_name] = ([updated_coord] if isinstance(updated_coord, (str, int, bool))
-                                  else updated_coord)
+
+            new_coords[dim_name] = (
+                [updated_coord]
+                if isinstance(updated_coord, (str, int, bool))
+                else updated_coord
+            )
 
         return new_coords
 
-    def _get_new_md_meta_coordinates_len(self, new_coords: Coordinates) -> CoordinatesLen:
+    def _get_new_md_meta_coordinates_len(
+        self, new_coords: Coordinates
+    ) -> CoordinatesLen:
         """Calculate lengths of updated coordinates."""
         return {key: len(values) for key, values in new_coords.items()}
 
@@ -169,7 +180,7 @@ class ChunkedReader:
         new_coords = self._get_new_md_meta_coordinates()
         dims = self.dataset.md_meta["md:dimensions"]
         new_coords_len = self._get_new_md_meta_coordinates_len(new_coords)
-        
+
         self.new_count = math.prod(new_coords_len.values())
 
         return {
@@ -207,7 +218,9 @@ class ChunkedReader:
             "count": self.new_count,
         }
 
-    def __getitem__(self, key: DimensionFilter) -> Tuple[NDArray[Any], Tuple[Coordinates, CoordinatesLen]]:
+    def __getitem__(
+        self, key: DimensionFilter
+    ) -> Tuple[NDArray[Any], Tuple[Coordinates, CoordinatesLen]]:
         """
         Perform optimized partial read operation.
 
@@ -231,19 +244,21 @@ class ChunkedReader:
         result = self._filter_dimensions(dims_len, filter_criteria)
 
         # Handle spatial slices
-        row_slice = row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
-        col_slice = col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
+        row_slice = (
+            row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
+        )
+        col_slice = (
+            col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
+        )
         window = Window.from_slices(row_slice, col_slice)
 
         # Read and rearrange data
         data_chunk = self.dataset._read(result.tolist(), window=window)
         new_coords = self._get_new_md_meta_coordinates()
         new_coords_len = self._get_new_md_meta_coordinates_len(new_coords)
-        
+
         data = rearrange(
-            data_chunk, 
-            self.dataset.md_meta["md:pattern"], 
-            **new_coords_len
+            data_chunk, self.dataset.md_meta["md:pattern"], **new_coords_len
         )
 
         return data, (new_coords, new_coords_len)

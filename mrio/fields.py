@@ -4,11 +4,12 @@ MRIO Metadata Module
 This module provides data structures for handling metadata in the MRIO (Multi-Resolution I/O) format.
 It includes classes for coordinates, metadata fields, and write parameters with validation.
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, ClassVar, TypedDict, Pattern
+from typing import Any, ClassVar, Dict, List, Optional, Pattern, TypedDict
 
 from mrio.errors import ValidationError
 from mrio.types import JSONValue
@@ -18,19 +19,20 @@ from mrio.types import JSONValue
 class Coordinates:
     """
     Immutable coordinate data structure for MRIO metadata.
-    
+
     This class represents coordinate values for each dimension in a multi-dimensional array.
     The coordinate values are stored as lists and are immutable once created.
-    
+
     Attributes:
         values: Dictionary mapping dimension names to their coordinate values
-    
+
     Example:
         >>> coords = Coordinates({
         ...     'time': [1, 2, 3],
         ...     'bands': ['red', 'green', 'blue']
         ... })
     """
+
     values: Dict[str, List[JSONValue]]
 
     def __post_init__(self) -> None:
@@ -40,7 +42,7 @@ class Coordinates:
     def _validate(self) -> None:
         """
         Validate that all coordinate values are lists.
-        
+
         Raises:
             ValidationError: If any coordinate value is not a list
         """
@@ -52,15 +54,15 @@ class Coordinates:
 class MRIOFields:
     """
     Metadata fields for MRIO format.
-    
+
     This class handles the pattern specification and coordinates for multi-dimensional arrays.
     It validates the pattern format and ensures consistency between pattern variables and coordinates.
-    
+
     Attributes:
         pattern: String specifying the dimension arrangement (e.g., "c h w -> (c) h w")
         coordinates: Coordinates object containing values for each dimension
         attributes: Optional dictionary of additional metadata attributes
-    
+
     Example:
         >>> fields = MRIOFields(
         ...     pattern="time band h w -> (time band) h w",
@@ -68,6 +70,7 @@ class MRIOFields:
         ...     attributes={'scale': 0.01}
         ... )
     """
+
     pattern: str
     coordinates: Coordinates
     attributes: Optional[Dict[str, JSONValue]] = None
@@ -85,7 +88,7 @@ class MRIOFields:
     def _validate_pattern(self) -> None:
         """
         Validate the pattern string format.
-        
+
         Raises:
             ValidationError: If pattern format is invalid
         """
@@ -99,7 +102,7 @@ class MRIOFields:
     def _validate_coordinates(self) -> None:
         """
         Validate coordinates are not empty.
-        
+
         Raises:
             ValidationError: If coordinates dictionary is empty
         """
@@ -109,13 +112,13 @@ class MRIOFields:
     def _parse_pattern(self) -> None:
         """
         Parse and validate pattern components.
-        
+
         Raises:
             ValueError: If variables before and after arrow don't match
         """
         if not self._pattern_match:
             raise ValidationError("Pattern must be validated before parsing")
-            
+
         self._before_arrow = self._pattern_match.group(1).split()
         self._in_parentheses = self._pattern_match.group(2).split()
         self._after_parentheses = self._pattern_match.group(3).split()
@@ -128,6 +131,7 @@ class MRIOFields:
 
 class WriteParamsDefaults(TypedDict, total=False):
     """Type definition for write parameter defaults."""
+
     driver: str
     dtype: str
     compress: str
@@ -150,15 +154,15 @@ class WriteParamsDefaults(TypedDict, total=False):
 class WriteParams:
     """
     Configuration parameters for writing raster data in MRIO format.
-    
+
     This class handles both optional and mandatory parameters for writing
     multi-dimensional raster data, with validation of required fields.
-    
+
     Attributes:
         DEFAULTS: Default values for optional parameters
         params: User-provided parameter values
         merged_params: Combined default and user parameters (created after init)
-    
+
     Example:
         >>> write_params = WriteParams({
         ...     'width': 1000,
@@ -168,9 +172,10 @@ class WriteParams:
         ...     'md:coordinates': {'time': [1, 2], 'band': ['red', 'green']}
         ... })
     """
+
     DEFAULTS: ClassVar[WriteParamsDefaults] = {
         # Optional parameters with defaults
-        "driver": "GTiff",        
+        "driver": "GTiff",
         "compress": "zstd",
         "interleave": "pixel",
         "tiled": True,
@@ -179,13 +184,11 @@ class WriteParams:
         "nodata": None,
         "count": 1,
         "md:attributes": {},
-        
         # Mandatory parameters (None indicates they must be provided)
         "crs": None,
         "transform": None,
         "md:pattern": None,
-        "md:coordinates": None,        
-        
+        "md:coordinates": None,
         # These parameters are estimated from the data if not provided
         "width": None,
         "height": None,
@@ -203,23 +206,24 @@ class WriteParams:
     def _validate_mandatory_fields(self) -> None:
         """
         Validate that all mandatory fields are provided.
-        
+
         Raises:
             ValidationError: If any mandatory field is missing
         """
         mandatory_fields = ["crs", "transform", "md:pattern", "md:coordinates"]
         missing_fields = [
-            field for field in mandatory_fields 
-            if self.merged_params.get(field) is None
+            field for field in mandatory_fields if self.merged_params.get(field) is None
         ]
-        
+
         if missing_fields:
-            raise ValidationError(f"Mandatory fields missing: {', '.join(missing_fields)}")
+            raise ValidationError(
+                f"Mandatory fields missing: {', '.join(missing_fields)}"
+            )
 
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert parameters to dictionary format.
-        
+
         Returns:
             Dictionary of all parameters with their values
         """

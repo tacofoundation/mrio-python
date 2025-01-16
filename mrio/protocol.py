@@ -5,10 +5,12 @@ This module defines the protocols for reader and writer operations in the mrio
 package. It specifies the required interfaces for dataset 
 implementations that handle multi-dimensional GeoTIFF files.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol, runtime_checkable, Any, Dict, Optional, Tuple, Literal, Union
+from typing import (Any, Dict, Literal, Optional, Protocol, Tuple, Union,
+                    runtime_checkable)
 
 import numpy as np
 import xarray as xr
@@ -22,25 +24,27 @@ Profile = Dict[str, Any]
 Coords = Dict[str, Any]
 DataArray = Union[np.ndarray, xr.DataArray]
 
+
 @runtime_checkable
 class DatasetReaderProtocol(Protocol):
     """
     Protocol defining the interface for MRIO dataset reading operations.
-    
+
     This protocol specifies the required interface for reading multi-dimensional
     GeoTIFF files with support for metadata, coordinates, and dimensions.
     """
+
     file_path: Path
     engine: Literal["numpy", "xarray"]
     profile: Profile
     meta: Dict[str, Any]
-    md_meta: Optional[Dict[str, Any]] # MRIOFields type
+    md_meta: Optional[Dict[str, Any]]  # MRIOFields type
     coords: Coords
     dims: list
     attrs: Dict[str, Any]
     shape: Tuple[int, ...]
     size: int
-    
+
     # Geometric properties
     width: int
     height: int
@@ -48,7 +52,7 @@ class DatasetReaderProtocol(Protocol):
     transform: Affine
     count: int
     bounds: Tuple[float, float, float, float]
-    
+
     # Data properties
     dtype: Any
     nodata: Optional[float]
@@ -109,10 +113,11 @@ class DatasetReaderProtocol(Protocol):
 class DatasetWriterProtocol(Protocol):
     """
     Protocol defining the interface for MRIO dataset writing operations.
-    
+
     This protocol specifies the required interface for writing multi-dimensional
     GeoTIFF files with support for metadata, coordinates, and custom band descriptions.
     """
+
     file_path: Path
     args: Tuple[Any, ...]
     kwargs: Dict[str, Any]

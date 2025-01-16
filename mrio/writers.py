@@ -1,21 +1,22 @@
 """
 MRIO Dataset Writer Module with automatic parameter detection.
 """
+
 from __future__ import annotations
 
 import json
 import math
 from itertools import product
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-import xarray as xr
 import rasterio as rio
+import xarray as xr
 from einops import rearrange
 
 from mrio.fields import MRIOFields, WriteParams
-from mrio.types import DataArray, PathLike, MetadataDict
+from mrio.types import DataArray, MetadataDict, PathLike
 
 # Constants
 MD_PREFIX: str = "md:"
@@ -25,7 +26,7 @@ MD_METADATA_KEY: str = "MD_METADATA"
 class DatasetWriter:
     """
     Writer for multi-dimensional GeoTIFF files with metadata handling.
-    
+
     Supports automatic inference of width, height, and dtype from input data.
 
     Example:
@@ -40,12 +41,7 @@ class DatasetWriter:
 
     __slots__ = ("file_path", "args", "kwargs", "_file", "md_kwargs", "_initialized")
 
-    def __init__(
-        self, 
-        file_path: PathLike, 
-        *args: Any, 
-        **kwargs: Any
-    ) -> None:
+    def __init__(self, file_path: PathLike, *args: Any, **kwargs: Any) -> None:
         """
         Initialize DatasetWriter with parameter auto-detection support.
 
@@ -81,30 +77,30 @@ class DatasetWriter:
         """
         if isinstance(data, xr.DataArray):
             data = data.values
-        
+
         if data.ndim < 2:
             raise ValueError("Data must have at least 2 dimensions")
-        
+
         inferred = {}
-        if self.kwargs.get('height') is None:
-            inferred['height'] = data.shape[-2]
-        if self.kwargs.get('width') is None:
-            inferred['width'] = data.shape[-1]
-        if self.kwargs.get('dtype') is None:
-            inferred['dtype'] = data.dtype
+        if self.kwargs.get("height") is None:
+            inferred["height"] = data.shape[-2]
+        if self.kwargs.get("width") is None:
+            inferred["width"] = data.shape[-1]
+        if self.kwargs.get("dtype") is None:
+            inferred["dtype"] = data.dtype
 
         return inferred
 
     def _initialize_write_mode(self, data: Optional[DataArray] = None) -> None:
         """
         Initialize write mode and process metadata parameters.
-        
+
         Args:
             data: Optional data array for parameter inference
         """
         # Initialize kwargs with WriteParams defaults
         kwargs = self.kwargs.copy()
-        
+
         # Infer parameters if data is provided
         if data is not None:
             inferred = self._infer_parameters(data)
@@ -112,35 +108,33 @@ class DatasetWriter:
 
         # Process write parameters
         kwargs = WriteParams(params=kwargs).to_dict()
-        
+
         # Extract metadata parameters
         md_kwargs_dict = {
-            k[len(MD_PREFIX):]: v
-            for k, v in kwargs.items()
-            if k.startswith(MD_PREFIX)
+            k[len(MD_PREFIX) :]: v for k, v in kwargs.items() if k.startswith(MD_PREFIX)
         }
-        
+
         # Remove processed metadata from kwargs
         for k in md_kwargs_dict:
             kwargs.pop(f"{MD_PREFIX}{k}")
 
         # Initialize metadata fields
         self.md_kwargs = MRIOFields(**md_kwargs_dict)
-        
+
         # Calculate total number of bands
         kwargs["count"] = math.prod(
             len(coords) for coords in self.md_kwargs.coordinates.values()
         )
 
         self.kwargs = kwargs
-        
+
         # Open the file if not already opened
         if self._file is None:
             try:
                 self._file = rio.open(self.file_path, "w", *self.args, **self.kwargs)
             except Exception as e:
                 raise IOError(f"Failed to open {self.file_path} for writing: {e}")
-        
+
         self._initialized = True
 
     def write(self, data: DataArray) -> None:
@@ -157,7 +151,6 @@ class DatasetWriter:
             self._initialize_write_mode(data)
         self._write_custom_data(data)
 
-
     def _write_custom_data(self, data: DataArray) -> None:
         """
         Write data with metadata handling.
@@ -170,7 +163,7 @@ class DatasetWriter:
         """
         if not self._initialized:
             self._initialize_write_mode(data)
-        
+
         if not self.md_kwargs.pattern or not self.md_kwargs.coordinates:
             self._file.write(data)
             return
@@ -194,15 +187,13 @@ class DatasetWriter:
 
         # Rearrange data according to pattern
         image = rearrange(data, self.md_kwargs.pattern)
-        
+
         # Generate band identifiers and metadata
         band_identifiers = self._generate_band_identifiers()
         md_metadata = self._generate_metadata()
 
         # Write data and metadata
-        for i, (band_data, band_id) in enumerate(
-            zip(image, band_identifiers), start=1
-        ):
+        for i, (band_data, band_id) in enumerate(zip(image, band_identifiers), start=1):
             self._file.write(band_data, i)
             self._file.set_band_description(i, band_id)
 
@@ -250,7 +241,7 @@ class DatasetWriter:
 
     def close(self) -> None:
         """Close the file and free resources."""
-        if hasattr(self, '_file') and not self._file.closed:
+        if hasattr(self, "_file") and not self._file.closed:
             self._file.close()
 
     def __setitem__(self, key: Any, value: DataArray) -> None:

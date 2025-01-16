@@ -10,6 +10,7 @@ Example:
     >>> if is_mgeotiff("example.tif"):
     ...     print("Valid MGeoTIFF file")
 """
+
 from __future__ import annotations
 
 import json
@@ -19,7 +20,7 @@ from typing import List, Optional, Set
 import rasterio as rio
 from rasterio.errors import RasterioError
 
-from mrio.types import PathLike, JSONValue, MetadataDict
+from mrio.types import JSONValue, MetadataDict, PathLike
 
 # Constants
 MD_METADATA_KEY = "MD_METADATA"
@@ -32,7 +33,7 @@ def check_metadata(
     path: PathLike,
     required_fields: List[str],
     required_attributes: Optional[List[str]] = None,
-    strict: bool = True
+    strict: bool = True,
 ) -> bool:
     """
     Validate GeoTIFF metadata against required fields and attributes.
@@ -98,11 +99,7 @@ def is_mgeotiff(path: PathLike, strict: bool = False) -> bool:
         >>> is_mgeotiff("multidim.tif")
         True
     """
-    return check_metadata(
-        path,
-        list(MGEOTIFF_REQUIRED_FIELDS),
-        strict=strict
-    )
+    return check_metadata(path, list(MGEOTIFF_REQUIRED_FIELDS), strict=strict)
 
 
 def is_tgeotiff(path: PathLike, strict: bool = False) -> bool:
@@ -126,7 +123,7 @@ def is_tgeotiff(path: PathLike, strict: bool = False) -> bool:
         path,
         list(TGEOTIFF_REQUIRED_FIELDS),
         list(TGEOTIFF_REQUIRED_ATTRS),
-        strict=strict
+        strict=strict,
     )
 
 
@@ -149,7 +146,9 @@ def _get_missing_fields(metadata: MetadataDict, required_fields: List[str]) -> S
     return set(required_fields) - set(metadata.keys())
 
 
-def _get_missing_attributes(metadata: MetadataDict, required_attrs: List[str]) -> Set[str]:
+def _get_missing_attributes(
+    metadata: MetadataDict, required_attrs: List[str]
+) -> Set[str]:
     """Get set of missing required attributes from metadata."""
     attributes = metadata.get("md:attributes", {})
     return set(required_attrs) - set(attributes.keys())

@@ -8,13 +8,15 @@ multi-dimensional arrays.
 
 from __future__ import annotations
 
-from typing import Tuple, Any, Optional, cast
-from mrio.types import DimKey, SliceTuple, NestedKey
+from typing import Any, Optional, Tuple, cast
+
+from mrio.types import DimKey, NestedKey, SliceTuple
+
 
 class SliceTransformer:
     """
     Transform array indices into standardized slice tuples.
-    
+
     This class handles various types of array indices and transforms them into
     a consistent format of slice tuples, supporting advanced indexing patterns
     like nested slices and ellipsis.
@@ -32,7 +34,7 @@ class SliceTransformer:
         ((slice(1, 2), slice(3, 4)), slice(1, 2), slice(None), slice(None))
     """
 
-    __slots__ = ('ndim',)
+    __slots__ = ("ndim",)
 
     def __init__(self, ndim: int) -> None:
         """
@@ -82,16 +84,16 @@ class SliceTransformer:
         """
         if isinstance(key, tuple) and len(key) == 2 and isinstance(key[0], list):
             return self._handle_nested_case(cast(NestedKey, key))
-        
+
         if dim is not None:
             return self._handle_dim_case(key, dim)
-        
+
         if isinstance(key, int):
             return self._handle_int_case(key)
-        
+
         if isinstance(key, slice):
             return self._handle_slice_case(key)
-        
+
         if isinstance(key, tuple):
             return self._handle_tuple_case(key)
 
@@ -104,7 +106,7 @@ class SliceTransformer:
             raise ValueError(f"Invalid dimension {dim} for ndim {self.ndim}")
         if not all(isinstance(item, int) for item in lst):
             raise ValueError(f"List must contain only integers. Got: {lst}")
-        
+
         nested_slices = tuple(slice(item, item + 1) for item in lst)
         result = [nested_slices, slice(dim, dim + 1)]
         result.extend(slice(None) for _ in range(self.ndim - 2))
@@ -115,8 +117,10 @@ class SliceTransformer:
         if not (0 <= dim < self.ndim):
             raise ValueError(f"Invalid dimension {dim} for ndim {self.ndim}")
         if not isinstance(key, list) or not all(isinstance(item, int) for item in key):
-            raise ValueError(f"When dim is specified, key must be a list of integers. Got: {key}")
-        
+            raise ValueError(
+                f"When dim is specified, key must be a list of integers. Got: {key}"
+            )
+
         result = [slice(None)] * self.ndim
         result[dim] = tuple(slice(item, item + 1) for item in key)
         return tuple(result)
@@ -137,7 +141,7 @@ class SliceTransformer:
         """Handle tuple input with possible ellipsis."""
         result = []
         found_ellipsis = False
-        
+
         for item in key:
             if item is Ellipsis:
                 if found_ellipsis:
@@ -155,5 +159,5 @@ class SliceTransformer:
         # Fill remaining dimensions with slice(None)
         if len(result) < self.ndim:
             result.extend([slice(None)] * (self.ndim - len(result)))
-        
-        return tuple(result[:self.ndim])
+
+        return tuple(result[: self.ndim])
