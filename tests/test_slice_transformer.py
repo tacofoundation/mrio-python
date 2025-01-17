@@ -281,7 +281,3 @@ def test_dimension_overflow(transformer) -> None:
     result = transformer.transform((1, 2, 3, 4, 5))
     assert len(result) == 4  # Should truncate to ndim
     assert result == (slice(1, 2), slice(2, 3), slice(3, 4), slice(4, 5))
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v", "--cov"])

@@ -48,7 +48,6 @@ class Coordinates:
             ValidationError: If any coordinate value is not a list
 
         """
-        print(self)        
         if not all(isinstance(v, list) for v in self.values.values()):
             msg = "All coordinate values must be lists"
             raise ValidationError(msg)

@@ -1,0 +1,16 @@
+[run]
+source = mrio
+omit = 
+    */tests/*
+    */__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if __name__ == __main__:
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    pass
+    \.\.\.    

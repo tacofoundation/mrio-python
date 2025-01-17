@@ -47,7 +47,8 @@ show_error_codes = "True"
 
 [tool.coverage.run]
 source = ["mrio"]
-omit = ["tests/*"]
+omit = ["__init__.py"]
+
 
 [tool.coverage.report]
 exclude_lines = [
@@ -60,6 +61,7 @@ exclude_lines = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
 
 [tool.ruff]
 target-version = "py39"
