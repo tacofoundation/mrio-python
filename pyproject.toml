@@ -15,6 +15,7 @@ python = ">=3.9,<4.0"
 rasterio = ">=1.4.3"
 einops = ">=0.8.0"
 xarray = ">=v2024.07.0"
+typing-extensions = ">=4.12.2"
 
 
 [tool.poetry.group.dev.dependencies]
