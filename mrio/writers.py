@@ -109,10 +109,9 @@ class DatasetWriter:
         # Initialize kwargs with WriteParams defaults
         kwargs = self.kwargs.copy()
 
-        # Infer parameters if data is provided
-        if data is not None:
-            inferred = self._infer_parameters(data)
-            kwargs.update(inferred)
+        # Infer data parameters
+        inferred = self._infer_parameters(data)
+        kwargs.update(inferred)
 
         # Process write parameters
         kwargs = WriteParams(params=kwargs).to_dict()
@@ -124,7 +123,7 @@ class DatasetWriter:
         for k in md_kwargs_dict:
             kwargs.pop(f"{MD_PREFIX}{k}")
 
-        # Initialize metadata fields
+        # Initialize metadata fields        
         self.md_kwargs = MRIOFields(**md_kwargs_dict)
 
         # Calculate total number of bands
@@ -166,9 +165,6 @@ class DatasetWriter:
             Falls back to simple write if no pattern/coordinates specified
 
         """
-        if not self._initialized:
-            self._initialize_write_mode(data)
-
         if not self.md_kwargs.pattern or not self.md_kwargs.coordinates:
             self._file.write(data)
             return
@@ -239,8 +235,12 @@ class DatasetWriter:
 
     def close(self) -> None:
         """Close the file and free resources."""
+        if self._file is None:
+            return # Already closed
+
         if hasattr(self, "_file") and not self._file.closed:
             self._file.close()
+        self._file = None
 
     def __setitem__(self, key: Any, value: DataArray) -> None:
         """Support array-like assignment syntax.
@@ -266,6 +266,8 @@ class DatasetWriter:
 
     def __repr__(self) -> str:
         """Detailed string representation."""
+        if self._file is None:
+            return f"<DatasetWriter name='{self.file_path}' mode='w'>"
         status = "closed" if self._file.closed else "open"
         return f"<{status} DatasetWriter name='{self.file_path}' mode='w'>"
 

@@ -82,6 +82,7 @@ class DatasetReader:
         "transform",
         "width",
         "window",
+        "descriptions"
     )
 
     # Class variables
@@ -155,6 +156,7 @@ class DatasetReader:
         self.indexes = self._file.indexes
         self.dtype = self._file.dtypes
         self.nodata = self._file.nodata
+        self.descriptions = self._file.descriptions
 
     def _load_metadata_properties(self) -> None:
         """Load and process metadata properties."""

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from mrio.types import JSONValue
 
 
-@dataclass(frozen=True)
+@dataclass
 class Coordinates:
     """Immutable coordinate data structure for MRIO metadata.
 
@@ -48,6 +48,7 @@ class Coordinates:
             ValidationError: If any coordinate value is not a list
 
         """
+        print(self)        
         if not all(isinstance(v, list) for v in self.values.values()):
             msg = "All coordinate values must be lists"
             raise ValidationError(msg)
@@ -88,6 +89,15 @@ class MRIOFields:
         self._validate_coordinates()
         self._parse_pattern()
 
+        # Wrap raw dictionary in Coordinates
+        if isinstance(self.coordinates, dict):
+            _ = Coordinates(self.coordinates)
+
+        # Blazing-fast single-pass coordinate validation
+        mismatch = set(self.coordinates.keys()) ^ set(self._in_parentheses)
+        if mismatch:
+            raise ValidationError("Coordinates keys must match pattern variables")
+    
     def _validate_pattern(self) -> None:
         """Validate the pattern string format.
 
@@ -113,7 +123,7 @@ class MRIOFields:
         """
         if not self.coordinates.values:
             msg = "Coordinates cannot be empty"
-            raise ValidationError(msg)
+            raise ValidationError(msg)        
 
     def _parse_pattern(self) -> None:
         """Parse and validate pattern components.
@@ -218,12 +228,14 @@ class WriteParams:
             ValidationError: If any mandatory field is missing
 
         """
+        # Check for missing mandatory fields
         mandatory_fields = ["crs", "transform", "md:pattern", "md:coordinates"]
         missing_fields = [field for field in mandatory_fields if self.merged_params.get(field) is None]
 
         if missing_fields:
             msg = f"Mandatory fields missing: {', '.join(missing_fields)}"
             raise ValidationError(msg)
+        
 
     def to_dict(self) -> dict[str, Any]:
         """Convert parameters to dictionary format.
