@@ -110,7 +110,6 @@ def open(
 
         >>> with mrio.open("output.tif", mode="w", **profile) as dst:
         ...     dst.write(data)
-
     """
     if not isinstance(file_path, (str, Path)):
         msg = "file_path must be a string or Path object"

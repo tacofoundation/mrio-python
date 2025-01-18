@@ -59,14 +59,22 @@ class DatasetReader:
 
     __slots__ = (
         "_file",
+        "block_shapes",
         "args",
         "attrs",
         "bounds",
+        "interleaving",
+        "is_tiled",
+        "mask_flag_enums",
+        "gcps",
+        "driver",
+        "compression",
         "coords",
         "count",
         "crs",
         "dims",
         "dtype",
+        "dtypes",
         "engine",
         "file_path",
         "height",
@@ -75,6 +83,14 @@ class DatasetReader:
         "md_meta",
         "meta",
         "nodata",
+        "nodatavals",
+        "offsets",
+        "options",
+        "photometric",
+        "rpcs",
+        "scales",
+        "subdatasets",
+        "units",
         "profile",
         "res",
         "shape",
@@ -82,7 +98,10 @@ class DatasetReader:
         "transform",
         "width",
         "window",
-        "descriptions"
+        "descriptions",
+        "mode",
+        "chunks",
+        "ndim",
     )
 
     # Class variables
@@ -109,6 +128,7 @@ class DatasetReader:
 
         """
         self.file_path = Path(file_path)
+        self.mode = "r"
         self.engine = engine
         self.args = args
         self.kwargs = kwargs
@@ -153,17 +173,33 @@ class DatasetReader:
 
     def _load_data_properties(self) -> None:
         """Load data-related properties."""
+        self.block_shapes = self._file.block_shapes[0]
         self.indexes = self._file.indexes
-        self.dtype = self._file.dtypes
+        self.dtype = self._file.dtypes[0]
+        self.dtypes = self._file.dtypes[0]
         self.nodata = self._file.nodata
         self.descriptions = self._file.descriptions
+        self.compression = self._file.compression
+        self.driver = self._file.driver
+        self.gcps = self._file.gcps
+        self.interleaving = self._file.interleaving
+        self.is_tiled = self._file.is_tiled
+        self.mask_flag_enums = self._file.mask_flag_enums
+        self.nodatavals = self._file.nodatavals
+        self.offsets = self._file.offsets
+        self.options = self._file.options
+        self.photometric = self._file.photometric
+        self.rpcs = self._file.rpcs
+        self.scales = self._file.scales
+        self.subdatasets = self._file.subdatasets
+        self.units = self._file.units
 
     def _load_metadata_properties(self) -> None:
         """Load and process metadata properties."""
         self.md_meta = self._fast_load_metadata()
         self.coords = self.md_meta.get("md:coordinates", {}) if self.md_meta else {}
         self.dims = self.md_meta.get("md:dimensions", []) if self.md_meta else []
-        self.attrs = self.md_meta.get("md:attributes", {}) if self.md_meta else {}
+        self.attrs = self.md_meta.get("md:attributes", {}) if self.md_meta else {}        
 
     def _calculate_shape_and_size(self) -> None:
         """Calculate shape and size properties."""
@@ -172,8 +208,13 @@ class DatasetReader:
             self.shape = (*coord_lens, self.height, self.width)
         else:
             self.shape = (self.count, self.height, self.width)
+        
+        # Calculate size in bytes
+        self.ndim = len(self.shape)
+        self.size = np.prod(self.shape) * np.dtype(self.dtype).itemsize
 
-        self.size = np.prod(self.shape) * np.dtype(self.dtype[0]).itemsize
+        # Add leading dimensions of size 1 to match ndim
+        self.chunks = (1,) * (self.ndim - 2) + self.block_shapes
 
     @lru_cache(maxsize=1)
     def _fast_load_metadata(self) -> MetadataDict | None:
@@ -263,7 +304,7 @@ class DatasetReader:
             Subset of the dataset with updated metadata
 
         """
-        new_key = SliceTransformer(ndim=len(self.shape)).transform(key)
+        new_key = SliceTransformer(ndim=self.ndim).transform(key)
         data, (new_md_coord, new_md_coord_len) = ChunkedReader(self)[new_key]
 
         if self.md_meta and (self.engine == "xarray"):
