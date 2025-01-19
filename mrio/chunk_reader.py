@@ -68,24 +68,26 @@ class ChunkedReader:
     @staticmethod
     def _filter_dimensions(dims: Sequence[int], filter_criteria: Sequence[FilterCondition]) -> NDArray[np.uint32]:
         """Filter dimensions using vectorized operations for optimal performance.
-
+        
         Args:
             dims: Sequence of dimension sizes to filter
             filter_criteria: Sequence of filtering conditions for each dimension
-
+        
         Returns:
-            NDArray of filtered dimension indices (1-based)
-
+            NDArray of filtered dimension indices (1-based) maintaining specified band order
+        
         Example:
             >>> dims = [3, 4, 5]
-            >>> criteria = [slice(1, 3), 2, [0, 2]]
+            >>> criteria = [slice(1, 3), 2, [2, 0]]  # Different from [0, 2]
+            >>> criteria = [slice(1, 3), 2, [0, 2]]  # Different from [0, 2]
             >>> ChunkedReader._filter_dimensions(dims, criteria)
-            array([7, 15])  # Example output
-
+            array([15, 7])  # Order matters!
         """
         data = np.indices(dims, dtype=np.uint32).reshape(len(dims), -1).T
         mask = np.ones(data.shape[0], dtype=bool)
-
+        
+        final_order = None
+        
         for dim, condition in enumerate(filter_criteria):
             if isinstance(condition, slice):
                 if condition == slice(None):
@@ -94,9 +96,22 @@ class ChunkedReader:
                 stop = condition.stop or dims[dim]
                 mask &= (data[:, dim] >= start) & (data[:, dim] < stop)
             elif isinstance(condition, (int, list, tuple)):
-                mask &= np.isin(data[:, dim], condition)
-
-        return np.nonzero(mask)[0] + 1
+                if isinstance(condition, (list, tuple)):
+                    dim_mask = np.isin(data[:, dim], condition)
+                    mask &= dim_mask
+                    # Store the values for final ordering
+                    masked_data = data[mask]
+                    if len(masked_data) > 0:
+                        final_order = np.array([list(condition).index(v) for v in masked_data[:, dim]])
+                else:
+                    mask &= data[:, dim] == condition
+        
+        result = np.nonzero(mask)[0]
+        
+        if final_order is not None and len(result) > 0:
+            result = result[np.argsort(final_order)]
+        
+        return result + 1
 
     def _get_new_geotransform(self) -> Affine:
         """Calculate updated geotransform for the current window.
@@ -232,13 +247,13 @@ class ChunkedReader:
         Raises:
             MRIOError: If dimensions or filter criteria are invalid
 
-        """
+        """        
         # Store query for metadata updates
         self.last_query = (key[:-2], key[-2:])
         filter_criteria, (row_slice, col_slice) = self.last_query
 
         # Filter dimensions
-        dims_len = tuple(self.dataset.md_meta["md:coordinates_len"].values())
+        dims_len = tuple(self.dataset.md_meta["md:coordinates_len"].values())        
         result = self._filter_dimensions(dims_len, filter_criteria)
 
         # Handle spatial slices

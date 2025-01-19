@@ -37,6 +37,7 @@ from .readers import DatasetReader
 from .types import DataArray, PathLike
 from .validators import is_mgeotiff, is_tgeotiff
 from .writers import DatasetWriter
+from .earthengine_api import ImageCollection
 
 __version__ = version("mrio")
 
@@ -147,7 +148,7 @@ def read(file_path: PathLike, engine: str = "xarray", **kwargs: Any) -> DatasetR
     return open(file_path, mode=Mode.READ, engine=engine, **kwargs)
 
 
-def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
+def write(file_path: PathLike, data: DataArray, engine: str = "xarray", **kwargs: Any) -> DatasetWriter:
     """Convenience function to write data to a dataset file.
 
     This is equivalent to calling open() with write mode and then writing the data.
@@ -168,7 +169,7 @@ def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
         >>> writer = mrio.write("output.tif", data, **profile)
 
     """
-    writer = open(file_path, mode=Mode.WRITE, **kwargs)
+    writer = open(file_path, mode=Mode.WRITE, engine=engine, **kwargs)
     if not isinstance(writer, DatasetWriter):
         msg = "Expected DatasetWriter instance"
         raise TypeError(msg)
@@ -198,4 +199,5 @@ __all__ = [
     "transform",
     "windows",
     "write",
+    "ImageCollection",
 ]

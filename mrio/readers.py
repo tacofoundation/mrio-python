@@ -305,6 +305,8 @@ class DatasetReader:
 
         """
         new_key = SliceTransformer(ndim=self.ndim).transform(key)
+
+        # Read data with new metadata
         data, (new_md_coord, new_md_coord_len) = ChunkedReader(self)[new_key]
 
         if self.md_meta and (self.engine == "xarray"):
@@ -364,37 +366,60 @@ class DatasetReader:
 
         return f"Size: {size:.2f} {DatasetReader.UNITS[unit_index]}"
 
+    def _repr_value(self, value: Any, max_items: int = 3) -> str:
+        """
+        Uniform representation of lists for both coordinates and attributes.
+        """
+        if not isinstance(value, (list, tuple)):
+            return str(value)
+            
+        if len(value) <= max_items * 2:
+            return ', '.join(map(str, value))
+            
+        start_vals = ', '.join(map(str, value[:max_items]))
+        end_vals = ', '.join(map(str, value[-max_items:]))
+        return f"{start_vals} ... {end_vals} (length: {len(value)})"
+
     def _repr_coordinates(self, max_items: int = 3) -> str:
-        """Format coordinate representation with size information."""
+        """Format coordinate representation with consistent style."""
         coords_repr = []
         for key, value in self.coords.items():
+            # Calculate size
             total_bytes = sum(len(str(v)) for v in value)
             humanized_size = self._humanize_size(total_bytes)
-
-            if len(value) > max_items * 2:
-                coords_repr.append(
-                    f"  * {key} ({key}) <{humanized_size}> "
-                    f"{', '.join(map(str, value[:max_items]))} ... {', '.join(map(str, value[-max_items:]))} "
-                    f"({len(value) - 2 * max_items} more)",
-                )
-            else:
-                coords_repr.append(f"  * {key} ({key}) <{humanized_size}> {', '.join(map(str, value))}")
+            
+            # Format the value representation
+            value_repr = self._repr_value(value, max_items)
+            coords_repr.append(f"  * {key} ({key}) <{humanized_size}> {value_repr}")
+            
         return "\n".join(coords_repr)
 
     def _repr_attributes(self, max_items: int = 6) -> str:
-        """Format attribute representation."""
-        attrs_repr = [f"  {key}: {value}" for key, value in list(self.attrs.items())[:max_items]]
-        if len(self.attrs) > max_items:
-            attrs_repr.append(f"  ... ({len(self.attrs) - max_items} more)")
+        """Format attributes with consistent style."""
+        attrs_repr = []
+        
+        for key, value in self.attrs.items():
+            if isinstance(value, (list, tuple)):
+                # Use same formatting as coordinates for lists
+                value_repr = self._repr_value(value, 3)  # Use 3 items like coordinates
+                attrs_repr.append(f"  {key}: [{value_repr}]")
+            else:
+                # For non-list values
+                val_str = str(value)
+                if len(val_str) > 100:
+                    val_str = f"{val_str[:97]}..."
+                attrs_repr.append(f"  {key}: {val_str}")
+
+            if len(attrs_repr) >= max_items:
+                remaining = len(self.attrs) - max_items
+                if remaining > 0:
+                    attrs_repr.append(f"  ... (length: {remaining})")
+                break
+                
         return "\n".join(attrs_repr)
 
     def __repr__(self) -> str:
-        """Detailed string representation including size and coordinates.
-
-        Returns:
-            Formatted string with dataset information
-
-        """
+        """Uniform string representation."""
         coords_repr = self._repr_coordinates(max_items=3)
         attrs_repr = self._repr_attributes(max_items=6)
         size_str = self._humanize_size(self.size)
@@ -407,7 +432,7 @@ class DatasetReader:
             f"<LazyDataArray ({all_dims})>\n"
             f"{size_str}\n"
             f"Coordinates:\n{coords_repr}\n"
-            f"Dimensions without coordinates: lat, lon\n"
+            f"Dimensions without coordinates: y, x\n"
             f"Attributes:\n{attrs_repr}"
         )
 

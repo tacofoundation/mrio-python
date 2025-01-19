@@ -6,7 +6,7 @@ import json
 import math
 from itertools import product
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, ClassVar
 
 import rasterio as rio
 import xarray as xr
@@ -44,11 +44,21 @@ class DatasetWriter:
         "_initialized",
         "args",
         "file_path",
+        "engine",
         "kwargs",
         "md_kwargs",
     )
 
-    def __init__(self, file_path: PathLike, *args: Any, **kwargs: Any) -> None:
+    # Class variables
+    DEFAULT_ENGINE: ClassVar[str] = "xarray"
+
+    def __init__(
+        self,
+        file_path: PathLike,
+        engine: Literal["numpy", "xarray"] = DEFAULT_ENGINE,
+        *args: Any,
+        **kwargs: Any
+    ) -> None:
         """Initialize DatasetWriter with parameter auto-detection support.
 
         Args:
@@ -65,6 +75,7 @@ class DatasetWriter:
         self.file_path = Path(file_path)
         self.args = args
         self.kwargs = kwargs
+        self.engine = engine
         self._file = None
         self.md_kwargs = None
         self._initialized = False
@@ -153,7 +164,11 @@ class DatasetWriter:
         """
         if not self._initialized:
             self._initialize_write_mode(data)
-        self._write_custom_data(data)
+        
+        if self.engine == "xarray":
+            self._write_custom_data(data.values)
+        else:
+            self._write_custom_data(data)
 
     def _write_custom_data(self, data: DataArray) -> None:
         """Write data with metadata handling.

@@ -1,168 +1,114 @@
-"""MRIO Slice Transformer Module.
-
-This module provides functionality for transforming various types of array indices
-into a standardized tuple of slices, supporting advanced indexing patterns for
-multi-dimensional arrays.
-"""
-
 from __future__ import annotations
-
-from typing import Any, cast
-
-from mrio.types import DimKey, NestedKey, SliceTuple
+from typing import Any, List, Tuple, Union
+from mrio.types import SliceTuple
 
 
 class SliceTransformer:
-    """Transform array indices into standardized slice tuples.
-
-    This class handles various types of array indices and transforms them into
-    a consistent format of slice tuples, supporting advanced indexing patterns
-    like nested slices and ellipsis.
-
-    Attributes:
-        ndim: Number of dimensions in the target array
-
-    Example:
-        >>> transformer = SliceTransformer(ndim=4)
-        >>> # Single integer index
-        >>> transformer.transform(2)
-        (slice(2, 3, None), slice(None), slice(None), slice(None))
-        >>> # Nested slice with dimension
-        >>> transformer.transform(([1, 3], 1))
-        ((slice(1, 2), slice(3, 4)), slice(1, 2), slice(None), slice(None))
-
-    """
-
-    __slots__ = ("ndim",)
+    """Universal slice transformer that handles all valid input patterns including Ellipsis."""
 
     def __init__(self, ndim: int) -> None:
-        """Initialize the SliceTransformer.
-
-        Args:
-            ndim: Number of dimensions in the target array
-
-        Raises:
-            ValueError: If ndim is not a positive integer
-
-        """
         if not isinstance(ndim, int) or ndim < 1:
             msg = "ndim must be a positive integer"
             raise ValueError(msg)
         self.ndim = ndim
 
-    def transform(self, key: DimKey, dim: int | None = None) -> SliceTuple:
-        """Transform input key into a tuple of slices.
+    def _validate_slice(self, s: slice) -> None:
+        """Validate slice start and stop values."""
+        if s.start is not None and s.stop is not None:
+            if s.start > s.stop:
+                msg = f"Invalid slice: start ({s.start}) cannot be greater than stop ({s.stop})"
+                raise ValueError(msg)
 
-        This method handles various input types and converts them into a standardized
-        tuple of slices that matches the specified number of dimensions.
+    def _make_slice(self, val: Union[int, slice, List[int], type(Ellipsis)], dim_idx: int) -> Union[slice, List[int]]:
+        """Convert input value to appropriate slice format."""
+        # Check if it's one of the last two dimensions
+        is_last_two_dims = dim_idx >= self.ndim - 2
+        
+        if isinstance(val, slice):
+            self._validate_slice(val)
+            return val
+        elif isinstance(val, int):
+            return slice(val, val + 1)
+        elif isinstance(val, list):
+            if is_last_two_dims:
+                msg = "List indexing is only supported for non-spatial dimensions"
+                raise TypeError(msg)
+            return val
+        elif val is Ellipsis:
+            return val
+        msg = f"Cannot convert type {type(val)} to slice"
+        raise TypeError(msg)
 
-        Args:
-            key: Input key to transform. Can be:
-                - slice: A single slice object
-                - int: A single integer
-                - List[int]: A list of integers (requires dim parameter)
-                - Tuple[List[int], int]: Special case that creates a nested structure
-                - Tuple[Any, ...]: A tuple of slices/integers/ellipsis
-            dim: Optional dimension for list inputs (ignored for tuple inputs)
+    def transform(self, key: Any) -> SliceTuple:
+        """Transform any input pattern into a tuple of slices."""
+        # Handle single values
+        if isinstance(key, (int, slice, list)):
+            result = [slice(None)] * self.ndim
+            result[0] = self._make_slice(key, 0)
+            return tuple(result)
+            
+        # Handle Ellipsis as a single value
+        if key is Ellipsis:
+            return tuple([slice(None)] * self.ndim)
 
-        Returns:
-            Tuple of slices matching the number of dimensions
-
-        Raises:
-            ValueError: If dimension is invalid or for invalid input combinations
-            TypeError: If key type is not supported
-
-        Examples:
-            >>> transformer = SliceTransformer(ndim=3)
-            >>> # Single integer becomes a slice
-            >>> transformer.transform(1)
-            (slice(1, 2, None), slice(None), slice(None))
-            >>> # List with dimension creates nested structure
-            >>> transformer.transform([1, 2], dim=0)
-            ((slice(1, 2), slice(2, 3)), slice(None), slice(None))
-
-        """
-        if isinstance(key, tuple) and len(key) == 2 and isinstance(key[0], list):
-            return self._handle_nested_case(cast(NestedKey, key))
-
-        if dim is not None:
-            return self._handle_dim_case(key, dim)
-
-        if isinstance(key, int):
-            return self._handle_int_case(key)
-
-        if isinstance(key, slice):
-            return self._handle_slice_case(key)
-
+        # Handle tuples with possible Ellipsis
         if isinstance(key, tuple):
-            return self._handle_tuple_case(key)
+            # Count non-Ellipsis items
+            ellipsis_count = key.count(Ellipsis)
+            if ellipsis_count > 1:
+                msg = "Only one ellipsis (...) allowed in indexing expression"
+                raise IndexError(msg)
+                
+            if ellipsis_count == 0:
+                # Handle regular tuple without Ellipsis
+                result = [slice(None)] * self.ndim
+                for i, val in enumerate(key):
+                    if i >= self.ndim:
+                        break
+                    result[i] = self._make_slice(val, i)
+                return tuple(result)
+            
+            # Handle tuple with one Ellipsis
+            ellipsis_idx = key.index(Ellipsis)
+            
+            # Calculate how many slice(None)s to insert for Ellipsis
+            n_actual = len(key) - 1  # -1 for Ellipsis
+            n_missing = self.ndim - n_actual
+            
+            # Construct result
+            result = []
+            
+            # Add items before Ellipsis
+            for i in range(ellipsis_idx):
+                result.append(self._make_slice(key[i], i))
+                
+            # Add slice(None)s for Ellipsis
+            result.extend([slice(None)] * n_missing)
+            
+            # Add items after Ellipsis
+            for i in range(ellipsis_idx + 1, len(key)):
+                # Calculate the correct dimension index after Ellipsis
+                current_dim = i - 1 + n_missing
+                result.append(self._make_slice(key[i], current_dim))
+                
+            return tuple(result)
 
         msg = f"Unsupported key type: {type(key)}"
         raise TypeError(msg)
 
-    def _handle_nested_case(self, key: NestedKey) -> SliceTuple:
-        """Handle the special case of (list, dim) tuple input."""
-        lst, dim = key
-        if not (0 <= dim < self.ndim):
-            msg = f"Invalid dimension {dim} for ndim {self.ndim}"
-            raise ValueError(msg)
-        if not all(isinstance(item, int) for item in lst):
-            msg = f"List must contain only integers. Got: {lst}"
-            raise ValueError(msg)
-
-        nested_slices = tuple(slice(item, item + 1) for item in lst)
-        result = [nested_slices, slice(dim, dim + 1)]
-        result.extend(slice(None) for _ in range(self.ndim - 2))
-        return tuple(result)
-
-    def _handle_dim_case(self, key: DimKey, dim: int) -> SliceTuple:
-        """Handle the case where a dimension is specified."""
-        if not (0 <= dim < self.ndim):
-            msg = f"Invalid dimension {dim} for ndim {self.ndim}"
-            raise ValueError(msg)
-        if not isinstance(key, list) or not all(isinstance(item, int) for item in key):
-            msg = f"When dim is specified, key must be a list of integers. Got: {key}"
-            raise ValueError(msg)
-
-        result = [slice(None)] * self.ndim
-        result[dim] = tuple(slice(item, item + 1) for item in key)
-        return tuple(result)
-
-    def _handle_int_case(self, key: int) -> SliceTuple:
-        """Handle single integer input."""
-        result = [slice(key, key + 1)]
-        result.extend(slice(None) for _ in range(self.ndim - 1))
-        return tuple(result)
-
-    def _handle_slice_case(self, key: slice) -> SliceTuple:
-        """Handle single slice input."""
-        result = [key]
-        result.extend(slice(None) for _ in range(self.ndim - 1))
-        return tuple(result)
-
-    def _handle_tuple_case(self, key: tuple[Any, ...]) -> SliceTuple:
-        """Handle tuple input with possible ellipsis."""
-        result = []
-        found_ellipsis = False
-
-        for item in key:
-            if item is Ellipsis:
-                if found_ellipsis:
-                    msg = "Multiple ellipsis found in key"
-                    raise ValueError(msg)
-                found_ellipsis = True
-                ellipsis_fill = self.ndim - len(key) + 1
-                result.extend([slice(None)] * ellipsis_fill)
-            elif isinstance(item, int):
-                result.append(slice(item, item + 1))
-            elif isinstance(item, slice):
-                result.append(item)
-            else:
-                msg = f"Unsupported key type: {type(item)}"
-                raise TypeError(msg)
-
-        # Fill remaining dimensions with slice(None)
-        if len(result) < self.ndim:
-            result.extend([slice(None)] * (self.ndim - len(result)))
-
-        return tuple(result[: self.ndim])
+#transformer = SliceTransformer(ndim=5)
+#transformer.transform([1, 2])  # List only
+## ((slice(1, 2), slice(2, 3)), slice(None), slice(None), slice(None))
+#transformer.transform(1)  # Single int
+## (slice(1, 2), slice(None), slice(None), slice(None))
+#transformer.transform(slice(None))  # Single slice
+##(slice(None), slice(None), slice(None), slice(None))
+#transformer.transform((1, [1, 3], 1))  # 3-tuple
+## (slice(1, 2), (slice(1, 2), slice(3, 4)), slice(1, 2), slice(None))
+#transformer.transform((1, [1, 3], [1,2], 1))  # 4-tuple repeat
+## (slice(1, 2), (slice(1, 2), slice(3, 4)), slice(1, 2), slice(1, 2))
+#transformer.transform((1, 1, [1, 3], 1))  # 4-tuple positions
+## (slice(1, 2), slice(1, 2), (slice(1, 2), slice(3, 4)), slice(None))
+#transformer.transform((1, 1, [1, 3], slice(None), slice(0, 60)))  # With slice
+#(slice(1, 2), slice(1, 2), (slice(1, 2), slice(3, 4)), slice(None))
+#

@@ -195,18 +195,19 @@ class WriteParams:
         "driver": "GTiff",
         "compress": "zstd",
         "interleave": "pixel",
+        "bigtiff": True,
         "tiled": True,
         "blockxsize": 128,
         "blockysize": 128,
-        "nodata": None,
-        "count": 1,
+        "nodata": None,        
         "md:attributes": {},
         # Mandatory parameters (None indicates they must be provided)
         "crs": None,
         "transform": None,
         "md:pattern": None,
         "md:coordinates": None,
-        # These parameters are estimated from the data if not provided
+        # These parameters are estimated automatically
+        "count": 1,        
         "width": None,
         "height": None,
         "dtype": None,
