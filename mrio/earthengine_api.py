@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Tuple, Optional, Union, TypeVar, Protocol
+from typing import List, Optional, Union, TypeVar
 from datetime import datetime
 import numpy as np
 import rasterio as rio
