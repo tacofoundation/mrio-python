@@ -2,8 +2,33 @@
 
 [![codecov](https://codecov.io/gh/tacofoundation/mrio/graph/badge.svg?token=GDDIMU2WQR)](https://codecov.io/gh/tacofoundation/mrio)
 
-mrio is a library that extends [rasterio](https://github.com/rasterio/rasterio) for reading and writing multidimensional GeoTIFF files.
+mrio is a library that extends [rasterio](https://github.com/rasterio/rasterio) for reading and writing multidimensional COG files.
 
+## Examples
+
+Using the `xarray`-like read API:
+
+```python
+import mrio
+
+tcog_file = "https://huggingface.co/datasets/tacofoundation/mrio-examples/resolve/main/simple.tif"
+with mrio.open(tcog_file, engine="numpy") as src:
+    ddd = src[1:2, 0:4, ...]
+```
+
+Using the `earthengine`-like read API:
+
+```python
+import mrio
+
+tensor = ( 
+  mrio.Collection("https://huggingface.co/datasets/tacofoundation/mrio-examples/resolve/main/simple.tif")
+      .select(["B01", "B02", "B03"])
+      .FilterDate("2021-01-05", "2021-03-10")
+      .FilterBounds(-76.1, 4.3, -76.1, 4.3)
+      .getInfo()
+)
+```
 
 ## Installation
 
@@ -26,6 +51,10 @@ git clone git@github.com:tacofoundation/mrio.git
 cd mrio
 pip install .
 ```
+
+## Specification
+
+See the [mrio](https://tacofoundation.github.io/mrio/en/specification/multidimensional-geotiff-specification.html) website for details.
 
 ### License
 
