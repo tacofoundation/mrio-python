@@ -170,10 +170,7 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-demo.py
 
-zarr_demo.zarr/
-
-demo2.py
-
-demo3.py
+poetry.lock
+poetry.toml
+tox.ini
