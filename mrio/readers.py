@@ -59,49 +59,49 @@ class DatasetReader:
 
     __slots__ = (
         "_file",
-        "block_shapes",
         "args",
         "attrs",
+        "block_shapes",
         "bounds",
-        "interleaving",
-        "is_tiled",
-        "mask_flag_enums",
-        "gcps",
-        "driver",
+        "chunks",
         "compression",
         "coords",
         "count",
         "crs",
+        "descriptions",
         "dims",
+        "driver",
         "dtype",
         "dtypes",
         "engine",
         "file_path",
+        "gcps",
         "height",
         "indexes",
+        "interleaving",
+        "is_tiled",
         "kwargs",
+        "mask_flag_enums",
         "md_meta",
         "meta",
+        "mode",
+        "ndim",
         "nodata",
         "nodatavals",
         "offsets",
         "options",
         "photometric",
-        "rpcs",
-        "scales",
-        "subdatasets",
-        "units",
         "profile",
         "res",
+        "rpcs",
+        "scales",
         "shape",
         "size",
+        "subdatasets",
         "transform",
+        "units",
         "width",
         "window",
-        "descriptions",
-        "mode",
-        "chunks",
-        "ndim",
     )
 
     # Class variables
@@ -199,7 +199,7 @@ class DatasetReader:
         self.md_meta = self._fast_load_metadata()
         self.coords = self.md_meta.get("md:coordinates", {}) if self.md_meta else {}
         self.dims = self.md_meta.get("md:dimensions", []) if self.md_meta else []
-        self.attrs = self.md_meta.get("md:attributes", {}) if self.md_meta else {}        
+        self.attrs = self.md_meta.get("md:attributes", {}) if self.md_meta else {}
 
     def _calculate_shape_and_size(self) -> None:
         """Calculate shape and size properties."""
@@ -208,7 +208,7 @@ class DatasetReader:
             self.shape = (*coord_lens, self.height, self.width)
         else:
             self.shape = (self.count, self.height, self.width)
-        
+
         # Calculate size in bytes
         self.ndim = len(self.shape)
         self.size = np.prod(self.shape) * np.dtype(self.dtype).itemsize
@@ -372,10 +372,10 @@ class DatasetReader:
         """
         if not isinstance(value, (list, tuple)):
             return str(value)
-            
+
         if len(value) <= max_items * 2:
             return ', '.join(map(str, value))
-            
+
         start_vals = ', '.join(map(str, value[:max_items]))
         end_vals = ', '.join(map(str, value[-max_items:]))
         return f"{start_vals} ... {end_vals} (length: {len(value)})"
@@ -387,17 +387,17 @@ class DatasetReader:
             # Calculate size
             total_bytes = sum(len(str(v)) for v in value)
             humanized_size = self._humanize_size(total_bytes)
-            
+
             # Format the value representation
             value_repr = self._repr_value(value, max_items)
             coords_repr.append(f"  * {key} ({key}) <{humanized_size}> {value_repr}")
-            
+
         return "\n".join(coords_repr)
 
     def _repr_attributes(self, max_items: int = 6) -> str:
         """Format attributes with consistent style."""
         attrs_repr = []
-        
+
         for key, value in self.attrs.items():
             if isinstance(value, (list, tuple)):
                 # Use same formatting as coordinates for lists
@@ -415,7 +415,7 @@ class DatasetReader:
                 if remaining > 0:
                     attrs_repr.append(f"  ... (length: {remaining})")
                 break
-                
+
         return "\n".join(attrs_repr)
 
     def __repr__(self) -> str:

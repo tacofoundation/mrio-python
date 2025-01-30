@@ -4,12 +4,12 @@ import warnings
 from typing import Any, Dict
 
 import numpy as np
-import mrio
 import pytest
 import rasterio
-from rasterio.transform import from_bounds
 from rasterio.errors import NotGeoreferencedWarning
+from rasterio.transform import from_bounds
 
+import mrio
 from mrio import DatasetWriter
 from mrio.errors import ValidationError
 
@@ -50,10 +50,10 @@ def base_params() -> Dict[str, Any]:
 def test_basic_write(tmp_path, sample_data, base_params):
     """Test basic write functionality."""
     output_file = tmp_path / "test.tif"
-    
+
     with DatasetWriter(output_file, **base_params) as writer:
         writer.write(sample_data)
-        
+
     # Verify file was written correctly
     with rasterio.open(output_file) as src:
         assert src.count == 6  # 2 times * 3 bands
@@ -77,10 +77,10 @@ def test_parameter_inference(tmp_path, sample_data):
             "band": ["red", "green", "blue"]
         }
     }
-    
+
     with DatasetWriter(output_file, **params) as writer:
         writer.write(sample_data)
-    
+
     with rasterio.open(output_file) as src:
         assert src.width == 128
         assert src.height == 128
@@ -95,16 +95,16 @@ def test_invalid_pattern(tmp_path, base_params):
     output_file = tmp_path / "invalid.tif"
     params = base_params.copy()
     params["md:pattern"] = "invalid pattern"
-    
+
     try:
         writer = DatasetWriter(output_file, **params)
         # If no exception is raised during initialization
         print("No exception raised during initialization")
-        
+
         # Try to write some data to trigger validation
         sample_data = np.random.randint(0, 255, size=(2, 3, 128, 128), dtype=np.uint8)
         writer.write(sample_data)
-        
+
         # If write doesn't raise an exception
         pytest.fail("Expected ValidationError was not raised")
     except ValidationError as ve:
@@ -124,15 +124,15 @@ def test_invalid_coordinates(tmp_path, base_params, sample_data):
     output_file = tmp_path / "invalid.tif"
     params = base_params.copy()
     params["md:coordinates"] = {"wrong": "not a list"}
-    
+
     with pytest.raises(ValidationError, match="All coordinate values must be lists"):
         with DatasetWriter(output_file, **params) as writer:
-            writer.write(sample_data)        
+            writer.write(sample_data)
 
 def test_missing_mandatory_fields(tmp_path, sample_data):
     """Test missing mandatory fields."""
     output_file = tmp_path / "missing.tif"
-    
+
     with pytest.raises(Exception, match="Mandatory fields missing"):
         with DatasetWriter(output_file) as writer:
             writer.write(sample_data)
@@ -141,7 +141,7 @@ def test_invalid_dimensions(tmp_path, base_params):
     """Test data with invalid dimensions."""
     output_file = tmp_path / "invalid.tif"
     invalid_data = np.random.rand(10)  # 1D data
-    
+
     with DatasetWriter(output_file, **base_params) as writer:
         with pytest.raises(ValueError, match="Data must have at least 2 dimensions"):
             writer._infer_parameters(invalid_data)
@@ -152,7 +152,7 @@ def test_invalid_dimensions(tmp_path, base_params):
 def test_context_manager(tmp_path, base_params, sample_data):
     """Test context manager behavior."""
     output_file = tmp_path / "context.tif"
-    
+
     with DatasetWriter(output_file, **base_params) as writer:
         writer.write(sample_data)
         assert writer._file is not None
@@ -165,7 +165,7 @@ def test_explicit_close(tmp_path, base_params):
     writer.write(np.random.randint(0, 255, size=(2, 3, 128, 128), dtype=np.uint8))
     writer.close()
     assert writer._file is None
-    
+
 
 # Metadata Tests
 # ------------
@@ -173,7 +173,7 @@ def test_explicit_close(tmp_path, base_params):
 def test_metadata_writing(tmp_path, sample_data, base_params):
     """Test metadata is written correctly."""
     output_file = tmp_path / "metadata.tif"
-    
+
     with DatasetWriter(output_file, **base_params) as writer:
         writer.write(sample_data)
 
@@ -186,11 +186,11 @@ def test_metadata_writing(tmp_path, sample_data, base_params):
 def test_band_descriptions(tmp_path, sample_data, base_params):
     """Test band descriptions are set correctly."""
     output_file = tmp_path / "bands.tif"
-    
+
     with DatasetWriter(output_file, **base_params) as writer:
         writer.write(sample_data)
-    
-    with mrio.open(output_file) as tensor:        
+
+    with mrio.open(output_file) as tensor:
         descriptions = tensor.descriptions
         assert len(descriptions) == 6  # 2 times * 3 bands
         assert all(descriptions)

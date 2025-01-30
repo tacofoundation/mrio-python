@@ -2,35 +2,34 @@
 
 [![codecov](https://codecov.io/gh/tacofoundation/mrio/graph/badge.svg?token=GDDIMU2WQR)](https://codecov.io/gh/tacofoundation/mrio)
 
-mrio is a library that extends [rasterio](https://github.com/rasterio/rasterio) for reading and writing multidimensional COG files.
+mrio is a library that extends [rasterio](https://github.com/rasterio/rasterio) for reading and writing multidimensional GeoTIFF files.
 
-### Examples
+## What is a Multidimensional GeoTIFF?
 
-Using the `xarray`-like read API:
+A Multidimensional Geo Tag Image File Format (mGeoTIFF) extends the traditional GeoTIFF format by supporting 
+N-dimensional arrays, similar to NetCDF, HDF5, or Zarr. It maintains the simplicity, maturity, and compatibility
+of GeoTIFF, offering fast access and the ability to be opened by any GIS software or library that supports 
+the GeoTIFF format. For additional information, please refer to the [Specification](SPECIFICATION.md).
 
-```python
-import mrio
+## What is a Temporal GeoTIFF?
 
-tcog_file = "https://huggingface.co/datasets/tacofoundation/mrio-examples/resolve/main/simple.tif"
-with mrio.open(tcog_file, engine="numpy") as src:
-    ddd = src[1:2, 0:4, ...]
-```
+The Temporal GeoTIFF builds upon the mGeoTIFF format by adopting a stricter convention definition. A temporal 
+GeoTIFF file **MUST** adhere to the following rules:
 
-Using the `earthengine`-like read API:
+1. **Dimensions**: The file must include exactly four dimensions with the following names:
+    - `time`: The temporal dimension.
+    - `band`: The spectral dimension.
+    - `x`: The spatial dimension along the x-axis.
+    - `y`: The spatial dimension along the y-axis.
 
-```python
-import mrio
+2. **Required Metadata Attributes**: The following metadata attributes are mandatory:
+    - `md:id`: A unique identifier for the observation.
+    - `md:time_start`: The nominal start time of the observation.
+    - `md:time_end`: The nominal end time of the observation (optional).   
 
-tensor = ( 
-  mrio.Collection("https://huggingface.co/datasets/tacofoundation/mrio-examples/resolve/main/simple.tif")
-      .select(["B01", "B02", "B03"])
-      .FilterDate("2021-01-05", "2021-03-10")
-      .FilterBounds(-76.1, 4.3, -76.1, 4.3)
-      .getInfo()
-)
-```
+For additional information, please refer to the [Specification](SPECIFICATION.md).
 
-### Installation
+## Installation
 
 You can install the `mrio` library using `pip`:
 
@@ -51,10 +50,6 @@ git clone git@github.com:tacofoundation/mrio.git
 cd mrio
 pip install .
 ```
-
-### Specification
-
-See the [mrio](https://tacofoundation.github.io/mrio/en/specification/multidimensional-geotiff-specification.html) website for details.
 
 ### License
 

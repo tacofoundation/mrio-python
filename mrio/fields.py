@@ -96,7 +96,7 @@ class MRIOFields:
         mismatch = set(self.coordinates.keys()) ^ set(self._in_parentheses)
         if mismatch:
             raise ValidationError("Coordinates keys must match pattern variables")
-    
+
     def _validate_pattern(self) -> None:
         """Validate the pattern string format.
 
@@ -122,7 +122,7 @@ class MRIOFields:
         """
         if not self.coordinates.values:
             msg = "Coordinates cannot be empty"
-            raise ValidationError(msg)        
+            raise ValidationError(msg)
 
     def _parse_pattern(self) -> None:
         """Parse and validate pattern components.
@@ -192,14 +192,12 @@ class WriteParams:
 
     DEFAULTS: ClassVar[WriteParamsDefaults] = {
         # Optional parameters with defaults
-        "driver": "GTiff",
-        "compress": "zstd",
-        "interleave": "pixel",
-        "bigtiff": True,
-        "tiled": True,
-        "blockxsize": 128,
-        "blockysize": 128,
-        "nodata": None,        
+        "driver": "COG",
+        "compress": "deflate",
+        "interleave": "PIXEL",
+        "bigtiff": "YES",
+        "blocksize": 128,
+        "nodata": None,
         "md:attributes": {},
         # Mandatory parameters (None indicates they must be provided)
         "crs": None,
@@ -207,7 +205,7 @@ class WriteParams:
         "md:pattern": None,
         "md:coordinates": None,
         # These parameters are estimated automatically
-        "count": 1,        
+        "count": 1,
         "width": None,
         "height": None,
         "dtype": None,
@@ -235,7 +233,7 @@ class WriteParams:
         if missing_fields:
             msg = f"Mandatory fields missing: {', '.join(missing_fields)}"
             raise ValidationError(msg)
-        
+
 
     def to_dict(self) -> dict[str, Any]:
         """Convert parameters to dictionary format.

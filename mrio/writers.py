@@ -6,7 +6,7 @@ import json
 import math
 from itertools import product
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import rasterio as rio
 import xarray as xr
@@ -43,8 +43,8 @@ class DatasetWriter:
         "_file",
         "_initialized",
         "args",
-        "file_path",
         "engine",
+        "file_path",
         "kwargs",
         "md_kwargs",
     )
@@ -134,7 +134,7 @@ class DatasetWriter:
         for k in md_kwargs_dict:
             kwargs.pop(f"{MD_PREFIX}{k}")
 
-        # Initialize metadata fields        
+        # Initialize metadata fields
         self.md_kwargs = MRIOFields(**md_kwargs_dict)
 
         # Calculate total number of bands
@@ -164,9 +164,9 @@ class DatasetWriter:
         """
         if not self._initialized:
             self._initialize_write_mode(data)
-        
-        if self.engine == "xarray":
-            self._write_custom_data(data.values)
+
+        if (self.engine == "xarray") and isinstance(data, xr.DataArray):
+            self._write_xarray_data(data)
         else:
             self._write_custom_data(data)
 

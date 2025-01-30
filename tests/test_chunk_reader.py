@@ -1,10 +1,12 @@
-import pytest
+from unittest.mock import Mock
+
 import numpy as np
-from unittest.mock import Mock, patch
+import pytest
 from affine import Affine
-from rasterio.windows import Window
-from mrio.errors import MRIOError
+
 from mrio.chunk_reader import ChunkedReader
+from mrio.errors import MRIOError
+
 
 @pytest.fixture
 def mock_dataset():
@@ -20,7 +22,7 @@ def mock_dataset():
         "height": 100,
         "width": 100,
     }
-    
+
     # Setup multidimensional metadata
     dataset.md_meta = {
         "md:coordinates": {
@@ -39,7 +41,7 @@ def mock_dataset():
         "md:pattern": "time band y x -> (time band) y x",
         "md:attributes": {}
     }
-    
+
     return dataset
 
 def test_init(mock_dataset):
@@ -148,10 +150,10 @@ def test_getitem(mock_dataset):
     reader = ChunkedReader(mock_dataset)
     # Fix: Provide correct shape for mock data (4D)
     mock_dataset._read.return_value = np.zeros((2, 1, 10, 10))  # time, band, y, x
-    
+
     key = (slice(0, 2), 0, slice(0, 10), slice(0, 10))
     data, (coords, coords_len) = reader[key]
-    
+
     assert isinstance(data, np.ndarray)
     assert isinstance(coords, dict)
     assert isinstance(coords_len, dict)
@@ -163,9 +165,9 @@ def test_close(mock_dataset):
     reader.new_height = 100
     reader.new_width = 100
     reader.new_count = 100
-    
+
     reader.close()
-    
+
     assert reader.last_query is None
     assert reader.new_height is None
     assert reader.new_width is None

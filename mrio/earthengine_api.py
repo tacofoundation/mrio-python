@@ -1,13 +1,16 @@
 from __future__ import annotations
-from typing import List, Optional, Union, TypeVar
+
+from dataclasses import dataclass, field
 from datetime import datetime
+from functools import lru_cache
+from typing import List, Optional, TypeVar, Union
+
 import numpy as np
 import rasterio as rio
-from dataclasses import dataclass, field
-from functools import lru_cache
+
+from mrio.protocol import DatasetReaderProtocol
 from mrio.readers import DatasetReader
 from mrio.writers import DatasetWriter
-from mrio.protocol import DatasetReaderProtocol
 
 T = TypeVar('T', bound='ImageCollection')
 
@@ -67,7 +70,7 @@ class ImageCollection:
     """
     A lazy-loading image collection with immutable query state and optimized operations.
     """
-    
+
     def __init__(self, filepath: str, engine: str = "xarray") -> None:
         """Initialize the ImageCollection."""
         self._query = ImageQuery(filepath=filepath)
@@ -85,7 +88,7 @@ class ImageCollection:
         if not set(bands).issubset(self.dataset.coords["band"]):
             available = ', '.join(self.dataset.coords["band"])
             raise ValueError(f"Invalid bands. Available bands: {available}")
-        
+
         self._query = self._query.with_bands(bands)
         return self
 
@@ -112,19 +115,19 @@ class ImageCollection:
         """Check if indices are continuous and convert to slice if possible."""
         if not indices:
             return slice(None)
-        
+
         if len(indices) == 1:
             return slice(indices[0], indices[0] + 1)
-            
+
         if all(indices[i] + 1 == indices[i+1] for i in range(len(indices) - 1)):
             return slice(indices[0], indices[-1] + 1)
-            
+
         return None
 
     def _get_selection_indices(self) -> tuple[
-        Union[slice, List[int]], 
-        Union[slice, List[int]], 
-        tuple[slice, slice], 
+        Union[slice, List[int]],
+        Union[slice, List[int]],
+        tuple[slice, slice],
         Optional[rio.Affine]
     ]:
         """Get all selection indices and transform in one pass."""
@@ -136,11 +139,11 @@ class ImageCollection:
         # Process bands
         if self._query.bands:
             band_indices = tuple(
-                self.dataset.coords["band"].index(b) 
+                self.dataset.coords["band"].index(b)
                 for b in self._query.bands
             )
             band_idx = (
-                self._check_continuous_indices(band_indices) 
+                self._check_continuous_indices(band_indices)
                 or list(band_indices)
             )
 
@@ -148,17 +151,17 @@ class ImageCollection:
         if self._query.date_range:
             start, end = self._query.date_range
             dates = [
-                datetime.fromisoformat(d) 
+                datetime.fromisoformat(d)
                 for d in self.dataset.attrs["md:time_start"]
             ]
             date_indices = tuple(
-                i for i, date in enumerate(dates) 
+                i for i, date in enumerate(dates)
                 if start <= date <= end
             )
             if not date_indices:
                 raise ValueError("No dates found within specified range")
             date_idx = (
-                self._check_continuous_indices(date_indices) 
+                self._check_continuous_indices(date_indices)
                 or list(date_indices)
             )
 
@@ -172,7 +175,7 @@ class ImageCollection:
         """Calculate spatial bounds and transform."""
         img_bounds = self.dataset.bounds
         query_bounds = self._query.bounds
-        
+
         # Validate bounds intersection
         if not (
             query_bounds[0] < img_bounds[2] and
@@ -181,37 +184,37 @@ class ImageCollection:
             query_bounds[3] > img_bounds[1]
         ):
             raise ValueError("Query bounds don't intersect with image bounds")
-        
+
         # Get original transform and pixel sizes
         orig_transform = self.dataset.transform
         pixel_width = abs(orig_transform.a)
         pixel_height = abs(orig_transform.e)
-        
+
         # Calculate scales accounting for pixel centers
         x_scale = (self.dataset.shape[-1]) / (img_bounds[2] - img_bounds[0])
         y_scale = (self.dataset.shape[-2]) / (img_bounds[3] - img_bounds[1])
-        
+
         # Calculate pixel coordinates with half-pixel adjustment
         x_start = max(0, int(round((query_bounds[0] - img_bounds[0]) * x_scale)))
         x_end = min(self.dataset.shape[-1], int(round((query_bounds[2] - img_bounds[0]) * x_scale)))
         y_start = max(0, int(round((img_bounds[3] - query_bounds[3]) * y_scale)))
         y_end = min(self.dataset.shape[-2], int(round((img_bounds[3] - query_bounds[1]) * y_scale)))
-        
+
         # Calculate new transform based on actual pixel edges
         new_transform = rio.Affine(
-            pixel_width, 0.0, 
+            pixel_width, 0.0,
             img_bounds[0] + (x_start * pixel_width),  # Adjust origin to pixel edge
             0.0, -pixel_height,
             img_bounds[3] - (y_start * pixel_height)  # Adjust origin to pixel edge
         )
-        
+
         return (slice(y_start, y_end), slice(x_start, x_end)), new_transform
-    
+
     def getInfo(self) -> np.ndarray:
         """Execute the query and return the filtered image data."""
         band_idx, date_idx, (y_slice, x_slice), _ = self._get_selection_indices()
         tensor_slice = self.dataset[date_idx, band_idx, y_slice, x_slice]
-        
+
         # After reading close the dataset
         self.dataset.close()
 
@@ -221,17 +224,17 @@ class ImageCollection:
         """Save the filtered image data to a GeoTIFF file."""
         band_idx, date_idx, bounds_idx, new_transform = self._get_selection_indices()
         y_slice, x_slice = bounds_idx
-        
+
         # Get data
         data = self.dataset[date_idx, band_idx, y_slice, x_slice]
-        
+
         # Prepare metadata
         md_coords = self._prepare_coordinates(band_idx, date_idx)
         md_attrs = self._prepare_attributes(date_idx)
         md_pattern = " -> ".join(
             map(str.strip, self.dataset.md_meta["md:pattern"].split("->")[::-1])
         )
-        
+
         # Create final profile
         final_profile = {
             **self.dataset.profile,
@@ -243,60 +246,60 @@ class ImageCollection:
             "md:attributes": md_attrs,
             **kwargs
         }
-        
+
         # Write data
         with DatasetWriter(output_path, engine=self._engine, **final_profile) as dst:
             dst.write(data)
 
         # After writing close the dataset
         self.dataset.close()
-        
+
         return output_path
 
-    def _prepare_coordinates(self, band_idx: Union[slice, List[int]], 
+    def _prepare_coordinates(self, band_idx: Union[slice, List[int]],
                            date_idx: Union[slice, List[int]]) -> dict:
         """Prepare coordinate metadata."""
         coords = dict(self.dataset.coords)
-        
+
         if self._query.bands:
             coords["band"] = (
                 coords["band"][band_idx] if isinstance(band_idx, slice)
                 else [coords["band"][i] for i in band_idx]
             )
-            
+
         if self._query.date_range:
             coords["time"] = (
                 coords["time"][date_idx] if isinstance(date_idx, slice)
                 else [coords["time"][i] for i in date_idx]
             )
-            
+
         return coords
 
     def _prepare_attributes(self, date_idx: Union[slice, List[int]]) -> dict:
         """Prepare attribute metadata."""
         attrs = dict(self.dataset.attrs)
-        
+
         if not self._query.date_range:
             return attrs
-            
+
         time_fields = ["md:time_start", "md:id", "md:time_end"]
-        
+
         for field in time_fields:
             if field not in attrs:
                 continue
-                
+
             attrs[field] = (
                 attrs[field][date_idx] if isinstance(date_idx, slice)
                 else [attrs[field][i] for i in date_idx]
             )
-            
+
         return attrs
 
     # Public utility methods
     def bandNames(self) -> List[str]:
         """Return available band names."""
         return list(self.dataset.coords["band"])
-    
+
     def size(self) -> int:
         """Return the number of images."""
         return self.dataset.shape[0]
@@ -312,6 +315,6 @@ class ImageCollection:
 
     def __str__(self) -> str:
         return str(self.dataset)
-    
+
     def __repr__(self) -> str:
         return repr(self.dataset)

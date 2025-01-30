@@ -31,13 +31,14 @@ from rasterio.profiles import DefaultGTiffProfile, Profile
 from rasterio.transform import Affine, from_bounds, from_gcps, from_origin
 from rasterio.windows import Window
 
+from .earthengine_api import ImageCollection
+
 # Local imports
 from .errors import MRIOError
 from .readers import DatasetReader
 from .types import DataArray, PathLike
 from .validators import is_mgeotiff, is_tgeotiff
 from .writers import DatasetWriter
-from .earthengine_api import ImageCollection
 
 __version__ = version("mrio")
 
@@ -182,6 +183,7 @@ __all__ = [
     "CRS",
     "Affine",
     "DefaultGTiffProfile",
+    "ImageCollection",
     "Profile",
     "Window",
     "__version__",
@@ -199,5 +201,4 @@ __all__ = [
     "transform",
     "windows",
     "write",
-    "ImageCollection",
 ]

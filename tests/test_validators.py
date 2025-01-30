@@ -8,19 +8,17 @@ import json
 import warnings
 from pathlib import Path
 
+import numpy as np
 import pytest
 import rasterio
-import numpy as np
-from rasterio.errors import NotGeoreferencedWarning
 from rasterio.transform import Affine
 
 from mrio.validators import (
+    _get_missing_attributes,
+    _get_missing_fields,
     check_metadata,
     is_mgeotiff,
     is_tgeotiff,
-    _load_metadata,
-    _get_missing_fields,
-    _get_missing_attributes,
 )
 
 # Configure warnings for the entire test module
@@ -48,7 +46,7 @@ def valid_mgeotiff(tmp_path, valid_transform):
             "band": ["red", "green", "blue"]
         }
     }
-    
+
     profile = {
         "driver": "GTiff",
         "height": 10,
@@ -62,13 +60,13 @@ def valid_mgeotiff(tmp_path, valid_transform):
         "blockxsize": 256,
         "blockysize": 256
     }
-    
+
     data = np.zeros((3, 10, 10), dtype=np.uint8)
-    
+
     with rasterio.open(file_path, 'w', **profile) as dst:
         dst.write(data)
         dst.update_tags(**{"MD_METADATA": json.dumps(metadata)})
-    
+
     return file_path
 
 @pytest.fixture
@@ -86,7 +84,7 @@ def valid_tgeotiff(tmp_path, valid_transform):
             "md:id": "S2A_MSIL2A"
         }
     }
-    
+
     profile = {
         "driver": "GTiff",
         "height": 10,
@@ -100,13 +98,13 @@ def valid_tgeotiff(tmp_path, valid_transform):
         "blockxsize": 256,
         "blockysize": 256
     }
-    
+
     data = np.zeros((6, 10, 10), dtype=np.uint8)
-    
+
     with rasterio.open(file_path, 'w', **profile) as dst:
         dst.write(data)
         dst.update_tags(**{"MD_METADATA": json.dumps(metadata)})
-    
+
     return file_path
 
 @pytest.fixture
@@ -122,11 +120,11 @@ def invalid_metadata_file(tmp_path, valid_transform):
         "transform": valid_transform,
         "crs": "EPSG:32618"
     }
-    
+
     with rasterio.open(file_path, 'w', **profile) as dst:
         dst.write(np.zeros((1, 10, 10), dtype=np.uint8))
         dst.update_tags(**{"MD_METADATA": "{invalid json"})
-    
+
     return file_path
 
 def test_valid_mgeotiff(valid_mgeotiff):
@@ -153,7 +151,7 @@ def test_nonexistent_file():
         assert not is_mgeotiff("nonexistent.tif", strict=False)
         assert len(w) == 1
         assert "Failed to open file" in str(w[0].message)
-    
+
     with pytest.raises(ValueError, match="Failed to open file"):
         is_mgeotiff("nonexistent.tif", strict=True)
 
@@ -163,7 +161,7 @@ def test_invalid_json_metadata(invalid_metadata_file):
         assert not is_mgeotiff(invalid_metadata_file, strict=False)
         assert len(w) == 1
         assert "Invalid metadata JSON" in str(w[0].message)
-    
+
     with pytest.raises(ValueError, match="Invalid metadata JSON"):
         is_mgeotiff(invalid_metadata_file, strict=True)
 
@@ -179,10 +177,10 @@ def test_missing_metadata(tmp_path, valid_transform):
         "transform": valid_transform,
         "crs": "EPSG:32618"
     }
-    
+
     with rasterio.open(file_path, 'w', **profile) as dst:
         dst.write(np.zeros((1, 10, 10), dtype=np.uint8))
-    
+
     with warnings.catch_warnings(record=True) as w:
         assert not is_mgeotiff(file_path, strict=False)
         assert len(w) == 1
@@ -222,5 +220,5 @@ def test_path_types(valid_mgeotiff, path_type):
     assert is_mgeotiff(path)
 
 if __name__ == "__main__":
-    pytest.main(["-v", "--cov=mrio.validators", 
+    pytest.main(["-v", "--cov=mrio.validators",
                 "--cov-report=term-missing"])

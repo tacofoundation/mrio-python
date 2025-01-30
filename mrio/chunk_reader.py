@@ -85,9 +85,9 @@ class ChunkedReader:
         """
         data = np.indices(dims, dtype=np.uint32).reshape(len(dims), -1).T
         mask = np.ones(data.shape[0], dtype=bool)
-        
+
         final_order = None
-        
+
         for dim, condition in enumerate(filter_criteria):
             if isinstance(condition, slice):
                 if condition == slice(None):
@@ -105,12 +105,12 @@ class ChunkedReader:
                         final_order = np.array([list(condition).index(v) for v in masked_data[:, dim]])
                 else:
                     mask &= data[:, dim] == condition
-        
+
         result = np.nonzero(mask)[0]
-        
+
         if final_order is not None and len(result) > 0:
             result = result[np.argsort(final_order)]
-        
+
         return result + 1
 
     def _get_new_geotransform(self) -> Affine:
@@ -247,13 +247,13 @@ class ChunkedReader:
         Raises:
             MRIOError: If dimensions or filter criteria are invalid
 
-        """        
+        """
         # Store query for metadata updates
         self.last_query = (key[:-2], key[-2:])
         filter_criteria, (row_slice, col_slice) = self.last_query
 
         # Filter dimensions
-        dims_len = tuple(self.dataset.md_meta["md:coordinates_len"].values())        
+        dims_len = tuple(self.dataset.md_meta["md:coordinates_len"].values())
         result = self._filter_dimensions(dims_len, filter_criteria)
 
         # Handle spatial slices

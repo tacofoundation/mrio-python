@@ -1,14 +1,16 @@
 """Test suite for protocol.py module."""
 
-import pytest
-import numpy as np
-import xarray as xr
 from pathlib import Path
 from typing import Any
+
+import numpy as np
+import pytest
+import xarray as xr
 from rasterio.crs import CRS
 from rasterio.transform import Affine
 
 from mrio.protocol import DatasetReaderProtocol, DatasetWriterProtocol
+
 
 class MockDatasetReader:
     """Mock implementation of DatasetReaderProtocol."""
@@ -109,7 +111,7 @@ def test_protocol_compliance():
     """Test protocol compliance for both reader and writer."""
     reader = MockDatasetReader()
     writer = MockDatasetWriter()
-    
+
     # Verify both implementations satisfy their respective protocols
     assert isinstance(reader, DatasetReaderProtocol)
     assert isinstance(writer, DatasetWriterProtocol)
@@ -117,7 +119,7 @@ def test_protocol_compliance():
 def test_reader_attributes():
     """Test reader attributes match protocol requirements."""
     reader = MockDatasetReader()
-    
+
     # Test required attributes
     assert isinstance(reader.file_path, Path)
     assert reader.engine in ["numpy", "xarray"]
@@ -142,7 +144,7 @@ def test_reader_attributes():
 def test_writer_attributes():
     """Test writer attributes match protocol requirements."""
     writer = MockDatasetWriter()
-    
+
     assert isinstance(writer.file_path, Path)
     assert isinstance(writer.args, tuple)
     assert isinstance(writer.kwargs, dict)
