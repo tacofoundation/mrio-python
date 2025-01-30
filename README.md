@@ -52,14 +52,14 @@ cd mrio
 pip install .
 ```
 
-#### Specification
+### Specification
 
 See the [mrio](https://tacofoundation.github.io/mrio/en/specification/multidimensional-geotiff-specification.html) website for details.
 
-#### License
+### License
 
 This project is licensed under the CC0 1.0 Universal Public Domain Dedication - see the [LICENSE](LICENSE) file for details.
 
-#### Changes
+### Changes
 
 See the [CHANGELOG](CHANGELOG.md) file for details.
