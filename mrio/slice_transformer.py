@@ -5,7 +5,6 @@ from mrio.types import SliceTuple
 from types import EllipsisType
 
 
-
 class SliceTransformer:
     """Universal slice transformer that handles all valid input patterns including Ellipsis."""
 
@@ -98,20 +97,3 @@ class SliceTransformer:
 
         msg = f"Unsupported key type: {type(key)}"
         raise TypeError(msg)
-
-#transformer = SliceTransformer(ndim=5)
-#transformer.transform([1, 2])  # List only
-## ((slice(1, 2), slice(2, 3)), slice(None), slice(None), slice(None))
-#transformer.transform(1)  # Single int
-## (slice(1, 2), slice(None), slice(None), slice(None))
-#transformer.transform(slice(None))  # Single slice
-##(slice(None), slice(None), slice(None), slice(None))
-#transformer.transform((1, [1, 3], 1))  # 3-tuple
-## (slice(1, 2), (slice(1, 2), slice(3, 4)), slice(1, 2), slice(None))
-#transformer.transform((1, [1, 3], [1,2], 1))  # 4-tuple repeat
-## (slice(1, 2), (slice(1, 2), slice(3, 4)), slice(1, 2), slice(1, 2))
-#transformer.transform((1, 1, [1, 3], 1))  # 4-tuple positions
-## (slice(1, 2), slice(1, 2), (slice(1, 2), slice(3, 4)), slice(None))
-#transformer.transform((1, 1, [1, 3], slice(None), slice(0, 60)))  # With slice
-#(slice(1, 2), slice(1, 2), (slice(1, 2), slice(3, 4)), slice(None))
-#

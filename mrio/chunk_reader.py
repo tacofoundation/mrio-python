@@ -1,6 +1,6 @@
 """ChunkedReader module for MRIO (Multi-Resolution I/O) package.
 
-This module provides optimized chunked reading capabilities for multi-dimensional GeoTIFF files,
+This module provides optimized chunked reading capabilities for multi-dimensional COG files,
 with support for partial reading, dimension filtering, and metadata handling.
 """
 
@@ -33,10 +33,10 @@ if TYPE_CHECKING:
 
 
 class ChunkedReader:
-    """Optimized implementation of multi-dimensional GeoTIFF reading with metadata handling.
+    """Optimized implementation of multi-dimensional COG reading with metadata handling.
 
     This class provides efficient partial reading capabilities for multi-dimensional
-    GeoTIFF files, handling both spatial and non-spatial dimensions. It supports
+    COG files, handling both spatial and non-spatial dimensions. It supports
     dimension filtering, window-based reading, and maintains correct geospatial metadata.
 
     Attributes:

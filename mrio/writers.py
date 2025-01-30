@@ -24,7 +24,7 @@ MD_METADATA_KEY: str = "MD_METADATA"
 
 
 class DatasetWriter:
-    """Writer for multi-dimensional GeoTIFF files with metadata handling.
+    """Writer for multi-dimensional COG files with metadata handling.
 
     Supports automatic inference of width, height, and dtype from input data.
 

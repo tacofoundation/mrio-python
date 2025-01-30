@@ -1,6 +1,6 @@
 """MRIO Dataset Reader Module.
 
-Provides optimized reading capabilities for multi-dimensional GeoTIFF files with
+Provides optimized reading capabilities for multi-dimensional COG files with
 metadata handling and lazy loading support. Supports both numpy and xarray outputs.
 """
 
@@ -33,7 +33,7 @@ MD_METADATA_KEY: str = "MD_METADATA"
 
 
 class DatasetReader:
-    """Optimized reader for multi-dimensional GeoTIFF files with metadata handling.
+    """Optimized reader for multi-dimensional COG files with metadata handling.
 
     This class provides efficient reading capabilities with metadata handling,
     coordinate management, and lazy loading support. It can output data as either

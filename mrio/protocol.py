@@ -2,7 +2,7 @@
 
 This module defines the protocols for reader and writer operations in the mrio
 package. It specifies the required interfaces for dataset
-implementations that handle multi-dimensional GeoTIFF files.
+implementations that handle multi-dimensional COG files.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ class DatasetReaderProtocol(Protocol):
     """Protocol defining the interface for MRIO dataset reading operations.
 
     This protocol specifies the required interface for reading multi-dimensional
-    GeoTIFF files with support for metadata, coordinates, and dimensions.
+    COG files with support for metadata, coordinates, and dimensions.
     """
 
     file_path: Path
@@ -121,7 +121,7 @@ class DatasetWriterProtocol(Protocol):
     """Protocol defining the interface for MRIO dataset writing operations.
 
     This protocol specifies the required interface for writing multi-dimensional
-    GeoTIFF files with support for metadata, coordinates, and custom band descriptions.
+    COG files with support for metadata, coordinates, and custom band descriptions.
     """
 
     file_path: Path

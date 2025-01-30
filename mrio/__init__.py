@@ -1,10 +1,10 @@
 """MRIO (Multi-dimensional Raster I/O) is a Python package for reading and writing
-multi-dimensional and standard GeoTIFF files.
+multi-dimensional and standard COG files.
 
 This package extends rasterio with multi-dimensional data support and provides a simple
 interface for I/O operations similar to rasterio. Additionally, for users who prefer
 working with xarray, MRIO provides an xarray-like and Google Earth Engine-like interface
-for reading multi-dimensional GeoTIFF files.
+for reading multi-dimensional COG files.
 
 Example:
     Basic usage for reading a file:
@@ -30,6 +30,7 @@ from rasterio.crs import CRS
 from rasterio.profiles import DefaultGTiffProfile, Profile
 from rasterio.transform import Affine, from_bounds, from_gcps, from_origin
 from rasterio.windows import Window
+from rasterio.env import Env
 
 from .earthengine_api import ImageCollection
 
@@ -37,7 +38,7 @@ from .earthengine_api import ImageCollection
 from .errors import MRIOError
 from .readers import DatasetReader
 from .types import DataArray, PathLike
-from .validators import is_mgeotiff, is_tgeotiff
+from .validators import is_mcog, is_tcog
 from .writers import DatasetWriter
 
 __version__ = version("mrio")
@@ -88,7 +89,7 @@ def open(
     """Open a dataset for reading or writing with enhanced multi-dimensional support.
 
     This function provides a unified interface for opening both standard and
-    multi-resolution GeoTIFF files. It automatically detects the file type and
+    multi-resolution COG files. It automatically detects the file type and
     returns the appropriate reader or writer.
 
     Args:
@@ -180,6 +181,7 @@ def write(file_path: PathLike, data: DataArray, engine: str = "xarray", **kwargs
 
 # Export public symbols
 __all__ = [
+    "Env",
     "CRS",
     "Affine",
     "DefaultGTiffProfile",
@@ -193,8 +195,8 @@ __all__ = [
     "from_gcps",
     "from_origin",
     "io",
-    "is_mgeotiff",
-    "is_tgeotiff",
+    "is_mcog",
+    "is_tcog",
     "open",
     "profiles",
     "read",

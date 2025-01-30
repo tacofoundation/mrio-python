@@ -174,3 +174,4 @@ cython_debug/
 poetry.lock
 poetry.toml
 tox.ini
+demo.py

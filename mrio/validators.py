@@ -1,14 +1,13 @@
-"""MRIO Validators Module.
+"""mrio Validators Module.
 
-This module provides validation functions for Multi-dimensional GeoTIFF (MGeoTIFF) and
-Temporal GeoTIFF (TGeoTIFF) files. It checks the presence and validity of required
+This module provides validation functions for multi-dimensional COG (mCOG) and
+temporal COG (tCOG) files. It checks the presence and validity of required
 metadata fields and attributes.
 
 Example:
-    >>> from mrio.validators import is_mgeotiff, is_tgeotiff
-    >>> if is_mgeotiff("example.tif"):
-    ...     print("Valid MGeoTIFF file")
-
+    >>> from mrio.validators import is_mcog, is_tcog
+    >>> if is_mcog("example.tif"):
+    ...     print("Valid mcog file")
 """
 
 from __future__ import annotations
@@ -25,9 +24,9 @@ if TYPE_CHECKING:
 
 # Constants
 MD_METADATA_KEY = "MD_METADATA"
-MGEOTIFF_REQUIRED_FIELDS: set[str] = {"md:pattern", "md:coordinates"}
-TGEOTIFF_REQUIRED_FIELDS: set[str] = MGEOTIFF_REQUIRED_FIELDS
-TGEOTIFF_REQUIRED_ATTRS: set[str] = {"md:time_start", "md:id"}
+MCOG_REQUIRED_FIELDS: set[str] = {"md:pattern", "md:coordinates"}
+TCOG_REQUIRED_FIELDS: set[str] = MCOG_REQUIRED_FIELDS
+TCOG_REQUIRED_ATTRS: set[str] = {"md:time_start", "md:id"}
 
 
 def check_metadata(
@@ -36,10 +35,10 @@ def check_metadata(
     required_attributes: list[str] | None = None,
     strict: bool = True,
 ) -> bool:
-    """Validate GeoTIFF metadata against required fields and attributes.
+    """Validate COG metadata against required fields and attributes.
 
     Args:
-        path: Path to the GeoTIFF file
+        path: Path to the COG file
         required_fields: List of fields that must be present in top-level metadata
         required_attributes: Optional list of attributes required in md:attributes
         strict: If True, raises exceptions for validation failures; if False, returns False
@@ -55,7 +54,6 @@ def check_metadata(
     Example:
         >>> check_metadata("data.tif", ["md:pattern"], ["time_start"])
         True
-
     """
     try:
         metadata = _load_metadata(path)
@@ -83,53 +81,53 @@ def check_metadata(
         return False
 
 
-def is_mgeotiff(path: PathLike, strict: bool = False) -> bool:
-    """Check if a file is a valid Multi-dimensional GeoTIFF (MGeoTIFF).
+def is_mcog(path: PathLike, strict: bool = False) -> bool:
+    """Check if a file is a valid multi-dimensional COG (mCOG).
 
-    MGeoTIFF files must contain md:pattern and md:coordinates in their metadata.
+    mCOG files must contain md:pattern and md:coordinates in their metadata.
 
     Args:
-        path: Path to the GeoTIFF file
+        path: Path to the COG file
         strict: If True, raises exceptions for validation failures
 
     Returns:
-        True if file is a valid MGeoTIFF
+        True if file is a valid mCOG
 
     Example:
-        >>> is_mgeotiff("multidim.tif")
+        >>> is_mcog("multidim.tif")
         True
 
     """
-    return check_metadata(path, list(MGEOTIFF_REQUIRED_FIELDS), strict=strict)
+    return check_metadata(path, list(MCOG_REQUIRED_FIELDS), strict=strict)
 
 
-def is_tgeotiff(path: PathLike, strict: bool = False) -> bool:
-    """Check if a file is a valid Temporal GeoTIFF (TGeoTIFF).
+def is_tcog(path: PathLike, strict: bool = False) -> bool:
+    """Check if a file is a valid temporal COG (tCOG).
 
-    TGeoTIFF files must contain both MGeoTIFF fields and temporal attributes.
+    tCOG files must contain both mCOG fields and temporal attributes.
 
     Args:
-        path: Path to the GeoTIFF file
+        path: Path to the COG file
         strict: If True, raises exceptions for validation failures
 
     Returns:
-        True if file is a valid TGeoTIFF
+        True if file is a valid tCOG
 
     Example:
-        >>> is_tgeotiff("temporal.tif")
+        >>> is_tcog("temporal.tif")
         True
 
     """
     return check_metadata(
         path,
-        list(TGEOTIFF_REQUIRED_FIELDS),
-        list(TGEOTIFF_REQUIRED_ATTRS),
+        list(TCOG_REQUIRED_FIELDS),
+        list(TCOG_REQUIRED_ATTRS),
         strict=strict,
     )
 
 
 def _load_metadata(path: PathLike) -> MetadataDict | None:
-    """Load and parse metadata from a GeoTIFF file."""
+    """Load and parse metadata from a COG file."""
     try:
         with rio.open(path) as src:
             tags = src.tags()
@@ -142,7 +140,6 @@ def _load_metadata(path: PathLike) -> MetadataDict | None:
     except json.JSONDecodeError as e:
         msg = f"Invalid metadata JSON: {e}"
         raise ValueError(msg)
-
 
 def _get_missing_fields(metadata: MetadataDict, required_fields: list[str]) -> set[str]:
     """Get set of missing required fields from metadata."""

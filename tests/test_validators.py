@@ -1,6 +1,6 @@
 """Tests for the validators module.
 
-This module provides comprehensive testing for MGeoTIFF and TGeoTIFF validation
+This module provides comprehensive testing for mCOG and tCOG validation
 functions, including metadata checking and error handling.
 """
 """Tests for the validators module with proper warning handling."""
@@ -17,8 +17,8 @@ from mrio.validators import (
     _get_missing_attributes,
     _get_missing_fields,
     check_metadata,
-    is_mgeotiff,
-    is_tgeotiff,
+    is_mcog,
+    is_tcog,
 )
 
 # Configure warnings for the entire test module
@@ -37,8 +37,8 @@ def valid_transform():
     )
 
 @pytest.fixture
-def valid_mgeotiff(tmp_path, valid_transform):
-    """Create a valid MGeoTIFF file for testing."""
+def valid_mcog(tmp_path, valid_transform):
+    """Create a valid mCOG file for testing."""
     file_path = tmp_path / "valid_mgeo.tif"
     metadata = {
         "md:pattern": "band h w -> (band) h w",
@@ -70,8 +70,8 @@ def valid_mgeotiff(tmp_path, valid_transform):
     return file_path
 
 @pytest.fixture
-def valid_tgeotiff(tmp_path, valid_transform):
-    """Create a valid TGeoTIFF file for testing."""
+def valid_tcog(tmp_path, valid_transform):
+    """Create a valid tCOG file for testing."""
     file_path = tmp_path / "valid_tgeo.tif"
     metadata = {
         "md:pattern": "time band h w -> (time band) h w",
@@ -127,43 +127,43 @@ def invalid_metadata_file(tmp_path, valid_transform):
 
     return file_path
 
-def test_valid_mgeotiff(valid_mgeotiff):
-    """Test validation of a valid MGeoTIFF file."""
-    assert is_mgeotiff(valid_mgeotiff)
-    assert check_metadata(valid_mgeotiff, ["md:pattern", "md:coordinates"])
+def test_valid_mcog(valid_mcog):
+    """Test validation of a valid mCOG file."""
+    assert is_mcog(valid_mcog)
+    assert check_metadata(valid_mcog, ["md:pattern", "md:coordinates"])
 
-def test_valid_tgeotiff(valid_tgeotiff):
-    """Test validation of a valid TGeoTIFF file."""
-    assert is_tgeotiff(valid_tgeotiff)
+def test_valid_tcog(valid_tcog):
+    """Test validation of a valid tCOG file."""
+    assert is_tcog(valid_tcog)
     assert check_metadata(
-        valid_tgeotiff,
+        valid_tcog,
         ["md:pattern", "md:coordinates"],
         ["md:time_start", "md:id"]
     )
 
-def test_tgeotiff_as_mgeotiff(valid_tgeotiff):
-    """Test that a valid TGeoTIFF is also a valid MGeoTIFF."""
-    assert is_mgeotiff(valid_tgeotiff)
+def test_tcog_as_mcog(valid_tcog):
+    """Test that a valid tCOG is also a valid mCOG."""
+    assert is_mcog(valid_tcog)
 
 def test_nonexistent_file():
     """Test handling of non-existent files."""
     with warnings.catch_warnings(record=True) as w:
-        assert not is_mgeotiff("nonexistent.tif", strict=False)
+        assert not is_mcog("nonexistent.tif", strict=False)
         assert len(w) == 1
         assert "Failed to open file" in str(w[0].message)
 
     with pytest.raises(ValueError, match="Failed to open file"):
-        is_mgeotiff("nonexistent.tif", strict=True)
+        is_mcog("nonexistent.tif", strict=True)
 
 def test_invalid_json_metadata(invalid_metadata_file):
     """Test handling of invalid JSON metadata."""
     with warnings.catch_warnings(record=True) as w:
-        assert not is_mgeotiff(invalid_metadata_file, strict=False)
+        assert not is_mcog(invalid_metadata_file, strict=False)
         assert len(w) == 1
         assert "Invalid metadata JSON" in str(w[0].message)
 
     with pytest.raises(ValueError, match="Invalid metadata JSON"):
-        is_mgeotiff(invalid_metadata_file, strict=True)
+        is_mcog(invalid_metadata_file, strict=True)
 
 def test_missing_metadata(tmp_path, valid_transform):
     """Test handling of files without metadata."""
@@ -182,7 +182,7 @@ def test_missing_metadata(tmp_path, valid_transform):
         dst.write(np.zeros((1, 10, 10), dtype=np.uint8))
 
     with warnings.catch_warnings(record=True) as w:
-        assert not is_mgeotiff(file_path, strict=False)
+        assert not is_mcog(file_path, strict=False)
         assert len(w) == 1
         assert "MD_METADATA not found" in str(w[0].message)
 
@@ -214,10 +214,10 @@ def test_empty_attributes():
     Path,
     lambda x: Path(x).resolve(),
 ])
-def test_path_types(valid_mgeotiff, path_type):
+def test_path_types(valid_mcog, path_type):
     """Test handling of different path types."""
-    path = path_type(valid_mgeotiff)
-    assert is_mgeotiff(path)
+    path = path_type(valid_mcog)
+    assert is_mcog(path)
 
 if __name__ == "__main__":
     pytest.main(["-v", "--cov=mrio.validators",

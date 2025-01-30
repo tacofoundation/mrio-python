@@ -221,7 +221,7 @@ class ImageCollection:
         return tensor_slice
 
     def save(self, output_path: str, **kwargs) -> str:
-        """Save the filtered image data to a GeoTIFF file."""
+        """Save the filtered image data to a COG file."""
         band_idx, date_idx, bounds_idx, new_transform = self._get_selection_indices()
         y_slice, x_slice = bounds_idx
 
