@@ -12,7 +12,7 @@ from mrio.protocol import DatasetReaderProtocol
 from mrio.readers import DatasetReader
 from mrio.writers import DatasetWriter
 
-T = TypeVar('T', bound='ImageCollection')
+T = TypeVar('T', bound='Collection')
 
 @dataclass(frozen=True)
 class ImageQuery:
@@ -32,10 +32,10 @@ class ImageQuery:
 
     def __post_init__(self) -> None:
         """Validate query parameters after initialization."""
-        if self.bounds:
-            min_x, min_y, max_x, max_y = self.bounds
-            if min_x >= max_x or min_y >= max_y:
-                raise ValueError("Invalid bounds: min values must be less than max values")
+        #if self.bounds:
+        #    min_x, min_y, max_x, max_y = self.bounds
+        #    if min_x >= max_x or min_y >= max_y:
+        #        raise ValueError("Invalid bounds: min values must be less than max values")
         if self.date_range and self.date_range[0] > self.date_range[1]:
             raise ValueError("Invalid date range: start date must be before end date")
 
@@ -66,7 +66,7 @@ class ImageQuery:
             bounds=bounds
         )
 
-class ImageCollection:
+class Collection:
     """
     A lazy-loading image collection with immutable query state and optimized operations.
     """
@@ -172,34 +172,64 @@ class ImageCollection:
         return band_idx, date_idx, bounds_idx, transform
 
     def _calculate_bounds(self) -> tuple[tuple[slice, slice], rio.Affine]:
-        """Calculate spatial bounds and transform."""
+        """Calculate spatial bounds and transform.
+        
+        Handles both area queries and point queries (where bounds are equal).
+        Returns a tuple of (y_slice, x_slice) and the new affine transform.
+        """
         img_bounds = self.dataset.bounds
         query_bounds = self._query.bounds
-
-        # Validate bounds intersection
-        if not (
-            query_bounds[0] < img_bounds[2] and
-            query_bounds[2] > img_bounds[0] and
-            query_bounds[1] < img_bounds[3] and
-            query_bounds[3] > img_bounds[1]
-        ):
-            raise ValueError("Query bounds don't intersect with image bounds")
-
+        
         # Get original transform and pixel sizes
         orig_transform = self.dataset.transform
         pixel_width = abs(orig_transform.a)
         pixel_height = abs(orig_transform.e)
-
+        
+        # Handle point query case (where bounds are equal)
+        is_point_query = (
+            query_bounds[0] == query_bounds[2] and 
+            query_bounds[1] == query_bounds[3]
+        )
+        
+        if is_point_query:
+            # For point queries, extend bounds by half a pixel
+            query_bounds = (
+                query_bounds[0] - pixel_width/2,  # minx
+                query_bounds[1] - pixel_height/2, # miny
+                query_bounds[2] + pixel_width/2,  # maxx
+                query_bounds[3] + pixel_height/2  # maxy
+            )
+        
+        # Validate bounds intersection
+        if not (
+            query_bounds[0] <= img_bounds[2] and
+            query_bounds[2] >= img_bounds[0] and
+            query_bounds[1] <= img_bounds[3] and
+            query_bounds[3] >= img_bounds[1]
+        ):
+            raise ValueError("Query bounds don't intersect with image bounds")
+        
         # Calculate scales accounting for pixel centers
         x_scale = (self.dataset.shape[-1]) / (img_bounds[2] - img_bounds[0])
         y_scale = (self.dataset.shape[-2]) / (img_bounds[3] - img_bounds[1])
-
-        # Calculate pixel coordinates with half-pixel adjustment
+        
+        # Calculate pixel coordinates
         x_start = max(0, int(round((query_bounds[0] - img_bounds[0]) * x_scale)))
-        x_end = min(self.dataset.shape[-1], int(round((query_bounds[2] - img_bounds[0]) * x_scale)))
+        x_end = min(
+            self.dataset.shape[-1], 
+            int(round((query_bounds[2] - img_bounds[0]) * x_scale))
+        )
         y_start = max(0, int(round((img_bounds[3] - query_bounds[3]) * y_scale)))
-        y_end = min(self.dataset.shape[-2], int(round((img_bounds[3] - query_bounds[1]) * y_scale)))
-
+        y_end = min(
+            self.dataset.shape[-2], 
+            int(round((img_bounds[3] - query_bounds[1]) * y_scale))
+        )
+        
+        # For point queries, ensure we return at least one pixel
+        if is_point_query:
+            x_end = max(x_start + 1, x_end)
+            y_end = max(y_start + 1, y_end)
+        
         # Calculate new transform based on actual pixel edges
         new_transform = rio.Affine(
             pixel_width, 0.0,
@@ -207,7 +237,7 @@ class ImageCollection:
             0.0, -pixel_height,
             img_bounds[3] - (y_start * pixel_height)  # Adjust origin to pixel edge
         )
-
+        
         return (slice(y_start, y_end), slice(x_start, x_end)), new_transform
 
     def getInfo(self) -> np.ndarray:

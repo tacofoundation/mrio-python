@@ -18,6 +18,7 @@ import xarray as xr
 from einops import rearrange
 from numpy.typing import NDArray
 from typing_extensions import Self
+from mrio.types import PathLike
 
 from mrio.chunk_reader import ChunkedReader
 from mrio.slice_transformer import SliceTransformer
@@ -110,7 +111,7 @@ class DatasetReader:
 
     def __init__(
         self,
-        file_path: Path,
+        file_path: PathLike,
         engine: Literal["numpy", "xarray"] = DEFAULT_ENGINE,
         *args: Any,
         **kwargs: Any,
@@ -127,7 +128,7 @@ class DatasetReader:
             IOError: If the file cannot be opened
 
         """
-        self.file_path = Path(file_path)
+        self.file_path = file_path
         self.mode = "r"
         self.engine = engine
         self.args = args

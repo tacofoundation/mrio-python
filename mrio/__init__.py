@@ -32,7 +32,7 @@ from rasterio.transform import Affine, from_bounds, from_gcps, from_origin
 from rasterio.windows import Window
 from rasterio.env import Env
 
-from .earthengine_api import ImageCollection
+from .earthengine_api import Collection
 
 # Local imports
 from .errors import MRIOError
@@ -185,7 +185,7 @@ __all__ = [
     "CRS",
     "Affine",
     "DefaultGTiffProfile",
-    "ImageCollection",
+    "Collection",
     "Profile",
     "Window",
     "__version__",
