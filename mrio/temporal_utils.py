@@ -32,9 +32,6 @@ def merge_profiles(base: dict, updates: dict) -> dict:
         if key == "md:attributes" and key in result:
             # Merge md:attributes dictionaries
             result[key] = {**result[key], **value}
-        elif isinstance(value, dict) and key in result:
-            # Recursive merge for nested dicts
-            result[key] = merge_profiles(result[key], value)
         else:
             result[key] = value
 
