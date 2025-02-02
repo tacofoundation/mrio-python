@@ -22,11 +22,12 @@ from __future__ import annotations
 
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, Literal, TypeVar, overload
+from typing import Any, Literal, TypeVar, overload, Union
 
 # Core rasterio imports
 from rasterio import band, crs, io, profiles, transform, windows
 from rasterio.crs import CRS
+from mrio.env_options import MRIOConfig
 from rasterio.profiles import DefaultGTiffProfile, Profile
 from rasterio.transform import Affine, from_bounds, from_gcps, from_origin
 from rasterio.windows import Window
@@ -40,6 +41,7 @@ from .readers import DatasetReader
 from .types import DataArray, PathLike
 from .validators import is_mcog, is_tcog
 from .writers import DatasetWriter
+from .temporal_utils import stack_temporal, unstack_temporal
 
 __version__ = version("mrio")
 
@@ -66,7 +68,7 @@ class Mode:
 def open(
     file_path: PathLike,
     mode: Literal["r"] = "r",
-    engine: str = "xarray",
+    engine: str = "numpy",
     **kwargs: Any,
 ) -> DatasetReader: ...
 
@@ -75,7 +77,7 @@ def open(
 def open(
     file_path: PathLike,
     mode: Literal["w"],
-    engine: str = "xarray",
+    engine: str = "numpy",
     **kwargs: Any,
 ) -> DatasetWriter: ...
 
@@ -83,7 +85,8 @@ def open(
 def open(
     file_path: PathLike,
     mode: str = Mode.READ,
-    engine: str = "xarray",
+    read_env_options: Union[Literal["mrio", "default"], dict[str, str]] = "mrio",
+    read_engine: str = "numpy",
     **kwargs: Any,
 ) -> DatasetReader | DatasetWriter:
     """Open a dataset for reading or writing with enhanced multi-dimensional support.
@@ -95,7 +98,11 @@ def open(
     Args:
         file_path: Path to the dataset file. Can be string or Path object.
         mode: Operation mode, either 'r' for read or 'w' for write.
-        engine: Backend engine to use for data processing.
+        read_engine: Backend engine to use for reading multi-dimensional data.
+            Default is 'numpy'. Other option is 'xarray'.
+        read_env_options: Configuration settings for the rasterio environment.
+            By default, uses MRIO configuration settings. Check MRIOConfig for details.
+            Other available options are 'default' and a custom dictionary.
         **kwargs: Additional keyword arguments passed to the reader/writer.
 
     Returns:
@@ -114,11 +121,6 @@ def open(
         >>> with mrio.open("output.tif", mode="w", **profile) as dst:
         ...     dst.write(data)
     """
-    if not isinstance(file_path, (str, Path)):
-        msg = "file_path must be a string or Path object"
-        raise TypeError(msg)
-
-    file_path = Path(file_path)
 
     if mode not in Mode.VALID_MODES:
         msg = f"Invalid mode '{mode}'. Use '{Mode.READ}' for read or '{Mode.WRITE}' for write."
@@ -126,10 +128,15 @@ def open(
 
     if mode == Mode.WRITE:
         return DatasetWriter(file_path, **kwargs)
-    return DatasetReader(file_path, engine=engine, **kwargs)
+    return read(file_path, engine=read_engine, env_options=read_env_options, **kwargs)
 
 
-def read(file_path: PathLike, engine: str = "xarray", **kwargs: Any) -> DatasetReader:
+def read(
+    file_path: PathLike,
+    engine: str = "numpy",
+    env_options: Union[Literal["mrio", "default"], dict[str, str]] = "mrio",
+    **kwargs: Any,
+) -> DatasetReader:
     """Convenience function to read a dataset file.
 
     This is equivalent to calling open() with read mode.
@@ -137,6 +144,9 @@ def read(file_path: PathLike, engine: str = "xarray", **kwargs: Any) -> DatasetR
     Args:
         file_path: Path to the dataset file.
         engine: Backend engine to use for data processing.
+        env_options: Configuration settings for the rasterio environment.
+            By default, uses MRIO configuration settings. Check MRIOConfig for details.
+            Other available options are 'default' and a custom dictionary.
         **kwargs: Additional keyword arguments passed to the reader.
 
     Returns:
@@ -147,10 +157,15 @@ def read(file_path: PathLike, engine: str = "xarray", **kwargs: Any) -> DatasetR
         >>> data = reader.read()
 
     """
-    return open(file_path, mode=Mode.READ, engine=engine, **kwargs)
+    if not isinstance(file_path, (str, Path)):
+        msg = "file_path must be a string or Path object"
+        raise TypeError(msg)
+
+    with MRIOConfig.get_env(env_options):
+        return DatasetReader(file_path, engine=engine, **kwargs)
 
 
-def write(file_path: PathLike, data: DataArray, engine: str = "xarray", **kwargs: Any) -> DatasetWriter:
+def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
     """Convenience function to write data to a dataset file.
 
     This is equivalent to calling open() with write mode and then writing the data.
@@ -171,13 +186,14 @@ def write(file_path: PathLike, data: DataArray, engine: str = "xarray", **kwargs
         >>> writer = mrio.write("output.tif", data, **profile)
 
     """
-    writer = open(file_path, mode=Mode.WRITE, engine=engine, **kwargs)
+    writer = DatasetWriter(file_path, **kwargs)
     if not isinstance(writer, DatasetWriter):
         msg = "Expected DatasetWriter instance"
         raise TypeError(msg)
 
     writer.write(data)
     return writer
+
 
 # Export public symbols
 __all__ = [
@@ -203,4 +219,6 @@ __all__ = [
     "transform",
     "windows",
     "write",
+    "stack_temporal",
+    "unstack_temporal",
 ]

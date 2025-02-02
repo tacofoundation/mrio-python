@@ -194,9 +194,9 @@ class WriteParams:
         # Optional parameters with defaults
         "driver": "COG",
         "compress": "deflate",
-        "interleave": "PIXEL",
+        "interleave": "TILE",
         "bigtiff": "YES",
-        "blocksize": 128,
+        "blocksize": 64,
         "nodata": None,
         "md:attributes": {},
         # Mandatory parameters (None indicates they must be provided)
@@ -233,7 +233,6 @@ class WriteParams:
         if missing_fields:
             msg = f"Mandatory fields missing: {', '.join(missing_fields)}"
             raise ValidationError(msg)
-
 
     def to_dict(self) -> dict[str, Any]:
         """Convert parameters to dictionary format.

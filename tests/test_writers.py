@@ -1,4 +1,5 @@
 """Tests for the MRIO Dataset Writer."""
+
 import json
 import warnings
 from typing import Any, Dict
@@ -19,10 +20,12 @@ warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 # Fixtures
 # --------
 
+
 @pytest.fixture
 def sample_data() -> np.ndarray:
     """Create sample data for testing."""
     return np.random.randint(0, 255, size=(2, 3, 128, 128), dtype=np.uint8)
+
 
 @pytest.fixture
 def base_params() -> Dict[str, Any]:
@@ -35,17 +38,14 @@ def base_params() -> Dict[str, Any]:
         "crs": "EPSG:4326",
         "transform": from_bounds(-76.2, 4.31, -76.1, 4.32, 128, 128),
         "md:pattern": "time band y x -> (time band) y x",
-        "md:coordinates": {
-            "time": ["2021", "2022"],
-            "band": ["red", "green", "blue"]
-        },
-        "md:attributes": {
-            "satellite": "Sentinel-2"
-        }
+        "md:coordinates": {"time": ["2021", "2022"], "band": ["red", "green", "blue"]},
+        "md:attributes": {"satellite": "Sentinel-2"},
     }
+
 
 # Basic Write Tests
 # ---------------
+
 
 def test_basic_write(tmp_path, sample_data, base_params):
     """Test basic write functionality."""
@@ -62,8 +62,10 @@ def test_basic_write(tmp_path, sample_data, base_params):
         read_data = src.read()
         np.testing.assert_array_equal(read_data.reshape(2, 3, 128, 128), sample_data)
 
+
 # Parameter Inference Tests
 # ----------------------
+
 
 def test_parameter_inference(tmp_path, sample_data):
     """Test automatic parameter inference."""
@@ -72,10 +74,7 @@ def test_parameter_inference(tmp_path, sample_data):
         "crs": "EPSG:4326",
         "transform": from_bounds(-76.2, 4.31, -76.1, 4.32, 128, 128),
         "md:pattern": "time band y x -> (time band) y x",
-        "md:coordinates": {
-            "time": ["2021", "2022"],
-            "band": ["red", "green", "blue"]
-        }
+        "md:coordinates": {"time": ["2021", "2022"], "band": ["red", "green", "blue"]},
     }
 
     with DatasetWriter(output_file, **params) as writer:
@@ -85,10 +84,12 @@ def test_parameter_inference(tmp_path, sample_data):
         assert src.width == 128
         assert src.height == 128
         assert src.count == 6  # 2 times * 3 bands
-        assert src.dtypes[0] == 'uint8'
+        assert src.dtypes[0] == "uint8"
+
 
 # Validation Tests
 # -------------
+
 
 def test_invalid_pattern(tmp_path, base_params):
     """Test invalid pattern format."""
@@ -119,8 +120,8 @@ def test_invalid_pattern(tmp_path, base_params):
 
 def test_invalid_coordinates(tmp_path, base_params, sample_data):
     """Test invalid coordinates."""
-    #import pathlib
-    #tmp_path = pathlib.Path(".")
+    # import pathlib
+    # tmp_path = pathlib.Path(".")
     output_file = tmp_path / "invalid.tif"
     params = base_params.copy()
     params["md:coordinates"] = {"wrong": "not a list"}
@@ -129,6 +130,7 @@ def test_invalid_coordinates(tmp_path, base_params, sample_data):
         with DatasetWriter(output_file, **params) as writer:
             writer.write(sample_data)
 
+
 def test_missing_mandatory_fields(tmp_path, sample_data):
     """Test missing mandatory fields."""
     output_file = tmp_path / "missing.tif"
@@ -136,6 +138,7 @@ def test_missing_mandatory_fields(tmp_path, sample_data):
     with pytest.raises(Exception, match="Mandatory fields missing"):
         with DatasetWriter(output_file) as writer:
             writer.write(sample_data)
+
 
 def test_invalid_dimensions(tmp_path, base_params):
     """Test data with invalid dimensions."""
@@ -146,8 +149,10 @@ def test_invalid_dimensions(tmp_path, base_params):
         with pytest.raises(ValueError, match="Data must have at least 2 dimensions"):
             writer._infer_parameters(invalid_data)
 
+
 # Resource Management Tests
 # ----------------------
+
 
 def test_context_manager(tmp_path, base_params, sample_data):
     """Test context manager behavior."""
@@ -157,6 +162,7 @@ def test_context_manager(tmp_path, base_params, sample_data):
         writer.write(sample_data)
         assert writer._file is not None
         assert not writer._file.closed
+
 
 def test_explicit_close(tmp_path, base_params):
     """Test explicit close method."""
@@ -169,6 +175,7 @@ def test_explicit_close(tmp_path, base_params):
 
 # Metadata Tests
 # ------------
+
 
 def test_metadata_writing(tmp_path, sample_data, base_params):
     """Test metadata is written correctly."""
@@ -183,6 +190,7 @@ def test_metadata_writing(tmp_path, sample_data, base_params):
         assert metadata["md:coordinates"] == base_params["md:coordinates"]
         assert metadata.get("md:pattern", "") == pattern_inv
 
+
 def test_band_descriptions(tmp_path, sample_data, base_params):
     """Test band descriptions are set correctly."""
     output_file = tmp_path / "bands.tif"
@@ -194,6 +202,7 @@ def test_band_descriptions(tmp_path, sample_data, base_params):
         descriptions = tensor.descriptions
         assert len(descriptions) == 6  # 2 times * 3 bands
         assert all(descriptions)
+
 
 if __name__ == "__main__":
     pytest.main(["-v", "--cov=mrio.writers", "--cov-report=term-missing"])

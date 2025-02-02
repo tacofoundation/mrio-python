@@ -20,14 +20,11 @@ def sample_datacube():
     datacube = xr.DataArray(
         data=data,
         dims=["products", "time", "band", "lat", "lon"],
-        coords={
-            "products": products,
-            "time": time,
-            "band": bands
-        }
+        coords={"products": products, "time": time, "band": bands},
     )
 
     return datacube
+
 
 @pytest.fixture
 def write_params():
@@ -40,13 +37,10 @@ def write_params():
         "crs": "EPSG:4326",
         "transform": Affine.from_gdal(-76.2, 0.001, 0, 4.32, 0, -0.001),
         "md:pattern": "products time band lat lon -> (products time band) lat lon",
-        "md:coordinates": {
-            "products": products,
-            "time": time,
-            "band": bands
-        },
-        "md:attributes": {"satellite": "Sentinel-2 L1C"}
+        "md:coordinates": {"products": products, "time": time, "band": bands},
+        "md:attributes": {"satellite": "Sentinel-2 L1C"},
     }
+
 
 @pytest.fixture
 def temp_dataset(tmp_path, sample_datacube, write_params):
@@ -57,6 +51,7 @@ def temp_dataset(tmp_path, sample_datacube, write_params):
         src.write(sample_datacube.values)
 
     return file_path
+
 
 def test_full_workflow(temp_dataset):
     """Test the complete workflow from the demo example"""
@@ -72,6 +67,7 @@ def test_full_workflow(temp_dataset):
         full_data = src.read()
         assert full_data.shape == (2, 10, 4, 64, 64)
 
+
 def test_coordinate_handling(temp_dataset):
     """Test coordinate handling with real-world data"""
     with mrio.open(temp_dataset, engine="xarray") as src:
@@ -86,6 +82,7 @@ def test_coordinate_handling(temp_dataset):
         assert len(subset.coords["band"]) == 2
         assert list(subset.coords["products"]) == ["toa", "boa"]
 
+
 def test_large_data_handling(tmp_path):
     """Test handling of larger datasets"""
     # Create a larger dataset (but still manageable for testing)
@@ -97,11 +94,7 @@ def test_large_data_handling(tmp_path):
     datacube = xr.DataArray(
         data=data,
         dims=["products", "time", "band", "lat", "lon"],
-        coords={
-            "products": products,
-            "time": time,
-            "band": bands
-        }
+        coords={"products": products, "time": time, "band": bands},
     )
 
     file_path = tmp_path / "large_test.tif"
@@ -109,11 +102,7 @@ def test_large_data_handling(tmp_path):
         "crs": "EPSG:4326",
         "transform": Affine.from_gdal(-76.2, 0.001, 0, 4.32, 0, -0.001),
         "md:pattern": "products time band lat lon -> (products time band) lat lon",
-        "md:coordinates": {
-            "products": products,
-            "time": time,
-            "band": bands
-        }
+        "md:coordinates": {"products": products, "time": time, "band": bands},
     }
 
     # Write and read the large dataset
@@ -128,6 +117,7 @@ def test_large_data_handling(tmp_path):
         # Test reading full data
         full_data = src.read()
         assert full_data.shape == (2, 5, 4, 128, 128)
+
 
 def test_multidimensional_slicing(temp_dataset):
     """Test various multidimensional slicing patterns"""
@@ -145,6 +135,7 @@ def test_multidimensional_slicing(temp_dataset):
         slice4 = src[1, 2:7, 1:3]  # Mixed slicing
         assert slice4.shape == (1, 5, 2, 64, 64)
 
+
 def test_metadata_consistency(temp_dataset, write_params):
     """Test metadata consistency through write-read cycle"""
     with mrio.open(temp_dataset, engine="xarray") as src:
@@ -159,6 +150,7 @@ def test_metadata_consistency(temp_dataset, write_params):
         # Verify attributes
         assert src.attrs["satellite"] == "Sentinel-2 L1C"
 
+
 def test_error_handling_large_slices(temp_dataset):
     """Test handling with invalid slice operations it
     must return the maximum possible data"""
@@ -169,6 +161,7 @@ def test_error_handling_large_slices(temp_dataset):
         assert slice1.shape == (2, 10, 4, 64, 64)
         assert slice2.shape == (2, 10, 4, 64, 64)
 
+
 def test_memory_efficient_reading(temp_dataset):
     """Test memory-efficient reading with chunks"""
     with mrio.open(temp_dataset, engine="numpy") as src:
@@ -176,13 +169,13 @@ def test_memory_efficient_reading(temp_dataset):
         chunks = []
         for i in range(2):
             for j in range(0, 10, 2):
-                chunk = src[i, j:j+2, :]
+                chunk = src[i, j : j + 2, :]
                 chunks.append(chunk)
                 assert chunk.shape == (1, 2, 4, 64, 64)  # Note the leading 1 dimension
 
         # First concatenate along time axis (axis=1) within each product
         product_chunks = [
-            np.concatenate(chunks[i:i+5], axis=1)  # Concatenate time chunks
+            np.concatenate(chunks[i : i + 5], axis=1)  # Concatenate time chunks
             for i in (0, 5)
         ]
 
@@ -207,6 +200,7 @@ def test_xarray_integration(temp_dataset):
         # Test coordinate-based selection
         subset = data.sel(time=slice("20210101", "20210115"))
         assert isinstance(subset, xr.DataArray)
+
 
 def test_str_representation(temp_dataset):
     """Test string representation of DatasetReader"""
@@ -233,18 +227,19 @@ def test_str_representation(temp_dataset):
         # Check dimensions
         assert "64, 64" in str_repr or "y: 64, x: 64" in str_repr
 
+
 def test_repr_with_long_coordinates(temp_dataset):
     """Test representation handling of long coordinate lists"""
     with mrio.open(temp_dataset, engine="xarray") as src:
         repr_str = repr(src)
 
         # Count the number of time coordinates shown
-        time_coords_shown = len([line for line in repr_str.split('\n')
-                               if "20210" in line])
+        time_coords_shown = len([line for line in repr_str.split("\n") if "20210" in line])
 
         # Should not show all 10 time coordinates
         assert time_coords_shown < 10
         assert "..." in repr_str  # Should indicate truncation
+
 
 def test_repr_empty_attributes(tmp_path, sample_datacube, write_params):
     """Test representation with empty attributes"""

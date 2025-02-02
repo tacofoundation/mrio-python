@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import math
 from itertools import product
+import numpy as np
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import rasterio as rio
-import xarray as xr
+
 from einops import rearrange
 from typing_extensions import Self
 
@@ -43,22 +44,15 @@ class DatasetWriter:
         "_file",
         "_initialized",
         "args",
-        "engine",
         "file_path",
         "kwargs",
         "md_kwargs",
     )
 
     # Class variables
-    DEFAULT_ENGINE: ClassVar[str] = "xarray"
+    DEFAULT_ENGINE: ClassVar[str] = "numpy"
 
-    def __init__(
-        self,
-        file_path: PathLike,
-        engine: Literal["numpy", "xarray"] = DEFAULT_ENGINE,
-        *args: Any,
-        **kwargs: Any
-    ) -> None:
+    def __init__(self, file_path: PathLike, *args: Any, **kwargs: Any) -> None:
         """Initialize DatasetWriter with parameter auto-detection support.
 
         Args:
@@ -75,7 +69,6 @@ class DatasetWriter:
         self.file_path = Path(file_path)
         self.args = args
         self.kwargs = kwargs
-        self.engine = engine
         self._file = None
         self.md_kwargs = None
         self._initialized = False
@@ -93,7 +86,8 @@ class DatasetWriter:
             Only infers parameters that are None in self.kwargs
 
         """
-        if isinstance(data, xr.DataArray):
+        data_type = type(data)
+        if data_type.__name__ == "DataArray" and data_type.__module__ == "xarray.core.dataarray":
             data = data.values
 
         if data.ndim < 2:
@@ -165,10 +159,14 @@ class DatasetWriter:
         if not self._initialized:
             self._initialize_write_mode(data)
 
-        if (self.engine == "xarray") and isinstance(data, xr.DataArray):
-            self._write_xarray_data(data)
-        else:
+        if isinstance(data, np.ndarray):
             self._write_custom_data(data)
+        else:
+            data_type = type(data)
+            if data_type.__name__ == "DataArray" and data_type.__module__ == "xarray.core.dataarray":
+                self._write_custom_data(data.values)
+            else:
+                raise ValueError(f"Unsupported data type: {data_type}")
 
     def _write_custom_data(self, data: DataArray) -> None:
         """Write data with metadata handling.
@@ -251,7 +249,7 @@ class DatasetWriter:
     def close(self) -> None:
         """Close the file and free resources."""
         if self._file is None:
-            return # Already closed
+            return  # Already closed
 
         if hasattr(self, "_file") and not self._file.closed:
             self._file.close()

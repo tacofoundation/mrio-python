@@ -67,15 +67,15 @@ class ChunkedReader:
 
     @staticmethod
     def _filter_dimensions(dims: Sequence[int], filter_criteria: Sequence[FilterCondition]) -> NDArray[np.uint32]:
-        """Filter dimensions using vectorized operations for optimal performance.
-        
+        """Filter dimensions using vectorized operations.
+
         Args:
             dims: Sequence of dimension sizes to filter
             filter_criteria: Sequence of filtering conditions for each dimension
-        
+
         Returns:
             NDArray of filtered dimension indices (1-based) maintaining specified band order
-        
+
         Example:
             >>> dims = [3, 4, 5]
             >>> criteria = [slice(1, 3), 2, [2, 0]]  # Different from [0, 2]
@@ -234,41 +234,90 @@ class ChunkedReader:
         }
 
     def __getitem__(self, key: DimensionFilter) -> tuple[NDArray[Any], tuple[Coordinates, CoordinatesLen]]:
-        """Perform optimized partial read operation.
+        """Execute a partial read operation with dimension filtering and spatial slicing.
+
+        This method performs several key operations:
+        1. Filters the data along specified dimensions (e.g., time, bands)
+        2. Applies spatial windowing using row/column slices
+        3. Rearranges the data according to the metadata pattern
+
+        The operation sequence is:
+        1. Split the key into dimension filters and spatial slices
+        2. Reorder dimensions based on the pattern strategy
+        3. Apply dimension filtering using vectorized operations
+        4. Create a spatial window from row/column slices
+        5. Read the data chunk and rearrange according to pattern
 
         Args:
-            key: Tuple of slice/index/list objects defining the selection
+            key (DimensionFilter): A tuple containing:
+                - Dimension filters (e.g., for time, bands)
+                - Spatial slices (row_slice, col_slice)
+                Example: ((time_slice, band_slice), (row_slice, col_slice))
 
         Returns:
-            Tuple containing:
-                - NDArray of read data
-                - Tuple of (coordinates, coordinate lengths) metadata
+            tuple: Contains:
+                - NDArray: The read and rearranged data
+                - tuple: Updated coordinates metadata:
+                    - Coordinates: New coordinate values
+                    - CoordinatesLen: New coordinate lengths
 
         Raises:
-            MRIOError: If dimensions or filter criteria are invalid
-
+            MRIOError: If dimension filters or spatial slices are invalid
+            WindowError: If spatial window is invalid
         """
-        # Store query for metadata updates
+
+        # Split input key into dimension filters and spatial slices
         self.last_query = (key[:-2], key[-2:])
         filter_criteria, (row_slice, col_slice) = self.last_query
 
-        # Filter dimensions
+        # Get current dimension lengths from metadata
         dims_len = tuple(self.dataset.md_meta["md:coordinates_len"].values())
+
+        # Reorder dimensions according to pattern strategy
+        band_order = self.get_axis_order(self.dataset.md_meta["md:pattern"])
+        filter_criteria = tuple(filter_criteria[i] for i in band_order)
+        dims_len = tuple(dims_len[i] for i in band_order)
+
+        # Apply dimension filtering
         result = self._filter_dimensions(dims_len, filter_criteria)
 
-        # Handle spatial slices
+        # Create spatial window, defaulting to full extent if not specified
         row_slice = row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
         col_slice = col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
         window = Window.from_slices(row_slice, col_slice)
 
-        # Read and rearrange data
+        # Read data chunk and update metadata
         data_chunk = self.dataset._read(result.tolist(), window=window)
         new_coords = self._get_new_md_meta_coordinates()
         new_coords_len = self._get_new_md_meta_coordinates_len(new_coords)
 
-        data = rearrange(data_chunk, self.dataset.md_meta["md:pattern"], **new_coords_len)
+        # Rearrange data according to pattern
+        rearranged_data = rearrange(data_chunk, self.dataset.md_meta["md:pattern"], **new_coords_len)
 
-        return data, (new_coords, new_coords_len)
+        return rearranged_data, (new_coords, new_coords_len)
+
+    @staticmethod
+    def get_axis_order(pattern):
+        """
+        Get axis order from dimension pattern string, mapping from parentheses to target
+
+        Args:
+            pattern (str): Pattern like "(band time) y x -> time band y x"
+
+        Returns:
+            list[int]: Indices showing new order of axes
+        """
+        # Get the order in parentheses (source)
+        source = pattern.split("(")[1].split(")")[0].strip().split()
+
+        # Get the target dimensions (after ->)
+        target = pattern.split("->")[1].strip().split()
+
+        # Get only the dimensions that were in parentheses
+        target = target[: len(source)]
+
+        # Create mapping from source to target order
+        return [source.index(dim) for dim in target]
 
     def close(self) -> None:
         """Close the dataset and clean up resources."""

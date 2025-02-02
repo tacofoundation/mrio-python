@@ -14,6 +14,7 @@ from mrio.protocol import DatasetReaderProtocol, DatasetWriterProtocol
 
 class MockDatasetReader:
     """Mock implementation of DatasetReaderProtocol."""
+
     def __init__(self):
         self.file_path: Path = Path("test.tif")
         self.engine: str = "numpy"
@@ -56,8 +57,10 @@ class MockDatasetReader:
             raise IndexError(f"Index {key} is out of bounds for axis 0 with size {self.count}")
         return np.zeros(self.shape, dtype=self.dtype)
 
+
 class MockDatasetWriter:
     """Mock implementation of DatasetWriterProtocol."""
+
     def __init__(self):
         self.file_path: Path = Path("test_output.tif")
         self.args: tuple[Any, ...] = ()
@@ -107,6 +110,7 @@ class MockDatasetWriter:
         """Support array-like assignment."""
         self.write(value)
 
+
 def test_protocol_compliance():
     """Test protocol compliance for both reader and writer."""
     reader = MockDatasetReader()
@@ -115,6 +119,7 @@ def test_protocol_compliance():
     # Verify both implementations satisfy their respective protocols
     assert isinstance(reader, DatasetReaderProtocol)
     assert isinstance(writer, DatasetWriterProtocol)
+
 
 def test_reader_attributes():
     """Test reader attributes match protocol requirements."""
@@ -141,6 +146,7 @@ def test_reader_attributes():
     assert all(isinstance(x, float) for x in reader.bounds)
     assert isinstance(reader.nodata, (float, type(None)))
 
+
 def test_writer_attributes():
     """Test writer attributes match protocol requirements."""
     writer = MockDatasetWriter()
@@ -148,7 +154,8 @@ def test_writer_attributes():
     assert isinstance(writer.file_path, Path)
     assert isinstance(writer.args, tuple)
     assert isinstance(writer.kwargs, dict)
-    assert hasattr(writer, 'md_kwargs')
+    assert hasattr(writer, "md_kwargs")
+
 
 def test_error_handling():
     """Test error handling scenarios."""
@@ -170,6 +177,7 @@ def test_error_handling():
     # Test invalid data type
     with pytest.raises(TypeError, match="Data must be a numpy array or xarray DataArray"):
         writer.write("invalid data")
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

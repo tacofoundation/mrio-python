@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import json
 import warnings
+from importlib import import_module
 from functools import lru_cache
-from pathlib import Path
-from typing import Any, ClassVar, Literal, Union
+from typing import Any, ClassVar, Literal, Union, List, Dict
 
 import numpy as np
 import rasterio as rio
-import xarray as xr
+
 from einops import rearrange
 from numpy.typing import NDArray
 from typing_extensions import Self
@@ -27,7 +27,9 @@ from mrio.slice_transformer import SliceTransformer
 MetadataDict = dict[str, Any]
 Profile = dict[str, Any]
 Coords = dict[str, list[Any]]
-DataArray = Union[NDArray[Any], xr.DataArray]
+
+
+DataArray = Union[NDArray[Any], "xr.DataArray"]
 
 # Constants
 MD_METADATA_KEY: str = "MD_METADATA"
@@ -107,7 +109,7 @@ class DatasetReader:
 
     # Class variables
     UNITS: ClassVar[list[str]] = ["B", "KB", "MB", "GB", "TB"]
-    DEFAULT_ENGINE: ClassVar[str] = "xarray"
+    DEFAULT_ENGINE: ClassVar[str] = "numpy"
 
     def __init__(
         self,
@@ -286,13 +288,13 @@ class DatasetReader:
         )
 
         if self.engine == "xarray":
-            return xr.DataArray(
+            self._create_xarray(
                 data=data,
                 dims=self.md_meta["md:dimensions"],
                 coords=self.md_meta["md:coordinates"],
                 attrs=self.md_meta.get("md:attributes"),
-                fastpath=False,
             )
+
         return data
 
     def __getitem__(self, key: Any) -> DataArray:
@@ -311,13 +313,13 @@ class DatasetReader:
         data, (new_md_coord, new_md_coord_len) = ChunkedReader(self)[new_key]
 
         if self.md_meta and (self.engine == "xarray"):
-            return xr.DataArray(
+            return self._create_xarray(
                 data=data,
                 dims=self.md_meta["md:dimensions"],
                 coords=new_md_coord,
                 attrs=self.md_meta.get("md:attributes"),
-                fastpath=False,
             )
+
         return data
 
     @lru_cache(maxsize=128)
@@ -375,10 +377,10 @@ class DatasetReader:
             return str(value)
 
         if len(value) <= max_items * 2:
-            return ', '.join(map(str, value))
+            return ", ".join(map(str, value))
 
-        start_vals = ', '.join(map(str, value[:max_items]))
-        end_vals = ', '.join(map(str, value[-max_items:]))
+        start_vals = ", ".join(map(str, value[:max_items]))
+        end_vals = ", ".join(map(str, value[-max_items:]))
         return f"{start_vals} ... {end_vals} (length: {len(value)})"
 
     def _repr_coordinates(self, max_items: int = 3) -> str:
@@ -440,3 +442,37 @@ class DatasetReader:
     def __str__(self) -> str:
         """String representation matching __repr__."""
         return self.__repr__()
+
+    def _create_xarray(
+        self,
+        data: NDArray[Any],
+        dims: List[str],
+        coords: Dict[str, Any],
+        attrs: Dict[str, Any] | None = None,
+    ) -> Any:
+        """Create an xarray DataArray from input data and metadata.
+
+        Args:
+            data: The underlying array data
+            dims: Names of the dimensions
+            coords: Dictionary mapping dimension names to coordinate arrays
+            attrs: Optional dictionary of attributes to add to DataArray
+
+        Returns:
+            xarray.DataArray: The created array with coordinates and attributes
+
+        Raises:
+            ImportError: If xarray is not installed
+            ValueError: If input dimensions don't match data shape
+        """
+        try:
+            xr = import_module("xarray")
+            return xr.DataArray(
+                data=data,
+                dims=dims,
+                coords=coords,
+                attrs=attrs or {},  # Default to empty dict if None
+                fastpath=False,
+            )
+        except ImportError:
+            raise ImportError("xarray is required for this operation.\nInstall it via: pip install xarray")

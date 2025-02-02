@@ -141,6 +141,7 @@ def _load_metadata(path: PathLike) -> MetadataDict | None:
         msg = f"Invalid metadata JSON: {e}"
         raise ValueError(msg)
 
+
 def _get_missing_fields(metadata: MetadataDict, required_fields: list[str]) -> set[str]:
     """Get set of missing required fields from metadata."""
     return set(required_fields) - set(metadata.keys())
