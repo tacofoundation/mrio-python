@@ -5,19 +5,19 @@ from __future__ import annotations
 import json
 import math
 from itertools import product
-import numpy as np
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+import numpy as np
 import rasterio as rio
-
 from einops import rearrange
 from typing_extensions import Self
 
+from mrio import errors as mrio_errors
 from mrio.fields import MRIOFields, WriteParams
 
 if TYPE_CHECKING:
-    from mrio.types import DataArray, MetadataDict, PathLike
+    from mrio.type_definitions import DataArray, MetadataDict, PathLike
 
 # Constants
 MD_PREFIX: str = "md:"
@@ -87,7 +87,10 @@ class DatasetWriter:
 
         """
         data_type = type(data)
-        if data_type.__name__ == "DataArray" and data_type.__module__ == "xarray.core.dataarray":
+        if (
+            data_type.__name__ == "DataArray"
+            and data_type.__module__ == "xarray.core.dataarray"
+        ):
             data = data.values
 
         if data.ndim < 2:
@@ -122,7 +125,9 @@ class DatasetWriter:
         kwargs = WriteParams(params=kwargs).to_dict()
 
         # Extract metadata parameters
-        md_kwargs_dict = {k[len(MD_PREFIX) :]: v for k, v in kwargs.items() if k.startswith(MD_PREFIX)}
+        md_kwargs_dict = {
+            k[len(MD_PREFIX) :]: v for k, v in kwargs.items() if k.startswith(MD_PREFIX)
+        }
 
         # Remove processed metadata from kwargs
         for k in md_kwargs_dict:
@@ -132,7 +137,9 @@ class DatasetWriter:
         self.md_kwargs = MRIOFields(**md_kwargs_dict)
 
         # Calculate total number of bands
-        kwargs["count"] = math.prod(len(coords) for coords in self.md_kwargs.coordinates.values())
+        kwargs["count"] = math.prod(
+            len(coords) for coords in self.md_kwargs.coordinates.values()
+        )
 
         self.kwargs = kwargs
 
@@ -141,8 +148,7 @@ class DatasetWriter:
             try:
                 self._file = rio.open(self.file_path, "w", *self.args, **self.kwargs)
             except Exception as e:
-                msg = f"Failed to open {self.file_path} for writing: {e}"
-                raise OSError(msg)
+                raise mrio_errors.WritersFailedToOpenError(self.file_path, e) from e
 
         self._initialized = True
 
@@ -163,10 +169,13 @@ class DatasetWriter:
             self._write_custom_data(data)
         else:
             data_type = type(data)
-            if data_type.__name__ == "DataArray" and data_type.__module__ == "xarray.core.dataarray":
+            if (
+                data_type.__name__ == "DataArray"
+                and data_type.__module__ == "xarray.core.dataarray"
+            ):
                 self._write_custom_data(data.values)
             else:
-                raise ValueError(f"Unsupported data type: {data_type}")
+                raise mrio_errors.WritersUnsupportedDataTypeError(data_type)
 
     def _write_custom_data(self, data: DataArray) -> None:
         """Write data with metadata handling.
@@ -194,7 +203,9 @@ class DatasetWriter:
         # Filter coordinates to match pattern
         coordinates_keys = set(self.md_kwargs.coordinates)
         self.md_kwargs.coordinates = {
-            k: self.md_kwargs.coordinates[k] for k in self.md_kwargs._before_arrow if k in coordinates_keys
+            k: self.md_kwargs.coordinates[k]
+            for k in self.md_kwargs._before_arrow
+            if k in coordinates_keys
         }
 
         # Rearrange data according to pattern
@@ -224,7 +235,12 @@ class DatasetWriter:
         """
         return [
             "__".join(map(str, combination))
-            for combination in product(*[self.md_kwargs.coordinates[band] for band in self.md_kwargs._in_parentheses])
+            for combination in product(
+                *[
+                    self.md_kwargs.coordinates[band]
+                    for band in self.md_kwargs._in_parentheses
+                ]
+            )
         ]
 
     def _generate_metadata(self) -> MetadataDict:

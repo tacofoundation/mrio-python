@@ -17,10 +17,11 @@ import warnings
 from typing import TYPE_CHECKING
 
 import rasterio as rio
-from rasterio.errors import RasterioError
+
+from mrio import errors as mrio_errors
 
 if TYPE_CHECKING:
-    from mrio.types import MetadataDict, PathLike
+    from mrio.type_definitions import MetadataDict, PathLike
 
 # Constants
 MD_METADATA_KEY = "MD_METADATA"
@@ -73,8 +74,8 @@ def check_metadata(
             if missing_attrs:
                 _handle_error(f"Missing required attributes: {missing_attrs}", strict)
                 return False
-
-        return True
+        else:
+            return True
 
     except Exception as e:
         _handle_error(f"Validation failed: {e!s}", strict)
@@ -134,12 +135,10 @@ def _load_metadata(path: PathLike) -> MetadataDict | None:
             if MD_METADATA_KEY not in tags:
                 return None
             return json.loads(tags[MD_METADATA_KEY])
-    except RasterioError as e:
-        msg = f"Failed to open file: {e}"
-        raise ValueError(msg)
+    except rio.RasterioIOError as e:
+        raise mrio_errors.ValidatorsFailedToOpenError(path, e) from e
     except json.JSONDecodeError as e:
-        msg = f"Invalid metadata JSON: {e}"
-        raise ValueError(msg)
+        raise mrio_errors.ValidatorsInvalidMetadataError(e) from e
 
 
 def _get_missing_fields(metadata: MetadataDict, required_fields: list[str]) -> set[str]:
@@ -147,7 +146,9 @@ def _get_missing_fields(metadata: MetadataDict, required_fields: list[str]) -> s
     return set(required_fields) - set(metadata.keys())
 
 
-def _get_missing_attributes(metadata: MetadataDict, required_attrs: list[str]) -> set[str]:
+def _get_missing_attributes(
+    metadata: MetadataDict, required_attrs: list[str]
+) -> set[str]:
     """Get set of missing required attributes from metadata."""
     attributes = metadata.get("md:attributes", {})
     return set(required_attrs) - set(attributes.keys())

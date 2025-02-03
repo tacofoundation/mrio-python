@@ -23,13 +23,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from mrio.protocol import DatasetReaderProtocol
-    from mrio.types import (
-        Coordinates,
-        CoordinatesLen,
-        DimensionFilter,
-        FilterCondition,
-        MetadataDict,
-    )
+    from mrio.type_definitions import Coordinates, CoordinatesLen, DimensionFilter, FilterCondition, MetadataDict
 
 
 class ChunkedReader:
@@ -66,7 +60,9 @@ class ChunkedReader:
         self.new_count: int | None = None
 
     @staticmethod
-    def _filter_dimensions(dims: Sequence[int], filter_criteria: Sequence[FilterCondition]) -> NDArray[np.uint32]:
+    def _filter_dimensions(
+        dims: Sequence[int], filter_criteria: Sequence[FilterCondition]
+    ) -> NDArray[np.uint32]:
         """Filter dimensions using vectorized operations.
 
         Args:
@@ -102,7 +98,9 @@ class ChunkedReader:
                     # Store the values for final ordering
                     masked_data = data[mask]
                     if len(masked_data) > 0:
-                        final_order = np.array([list(condition).index(v) for v in masked_data[:, dim]])
+                        final_order = np.array(
+                            [list(condition).index(v) for v in masked_data[:, dim]]
+                        )
                 else:
                     mask &= data[:, dim] == condition
 
@@ -130,8 +128,12 @@ class ChunkedReader:
         row_slice, col_slice = self.last_query[1]
 
         # Handle full slices
-        row_slice = row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
-        col_slice = col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
+        row_slice = (
+            row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
+        )
+        col_slice = (
+            col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
+        )
 
         window = Window.from_slices(row_slice, col_slice)
 
@@ -156,7 +158,9 @@ class ChunkedReader:
             raise MRIOError(msg)
 
         query_conditions = self.last_query[0]
-        if not all(isinstance(cond, (slice, int, list, tuple)) for cond in query_conditions):
+        if not all(
+            isinstance(cond, (slice, int, list, tuple)) for cond in query_conditions
+        ):
             msg = "Filter criteria must be slice, int, list, or tuple"
             raise MRIOError(msg)
 
@@ -176,11 +180,17 @@ class ChunkedReader:
                 msg = f"Unsupported condition type: {type(cond)}"
                 raise MRIOError(msg)
 
-            new_coords[dim_name] = [updated_coord] if isinstance(updated_coord, (str, int, bool)) else updated_coord
+            new_coords[dim_name] = (
+                [updated_coord]
+                if isinstance(updated_coord, (str, int, bool))
+                else updated_coord
+            )
 
         return new_coords
 
-    def _get_new_md_meta_coordinates_len(self, new_coords: Coordinates) -> CoordinatesLen:
+    def _get_new_md_meta_coordinates_len(
+        self, new_coords: Coordinates
+    ) -> CoordinatesLen:
         """Calculate lengths of updated coordinates."""
         return {key: len(values) for key, values in new_coords.items()}
 
@@ -233,7 +243,9 @@ class ChunkedReader:
             "count": self.new_count,
         }
 
-    def __getitem__(self, key: DimensionFilter) -> tuple[NDArray[Any], tuple[Coordinates, CoordinatesLen]]:
+    def __getitem__(
+        self, key: DimensionFilter
+    ) -> tuple[NDArray[Any], tuple[Coordinates, CoordinatesLen]]:
         """Execute a partial read operation with dimension filtering and spatial slicing.
 
         This method performs several key operations:
@@ -282,8 +294,12 @@ class ChunkedReader:
         result = self._filter_dimensions(dims_len, filter_criteria)
 
         # Create spatial window, defaulting to full extent if not specified
-        row_slice = row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
-        col_slice = col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
+        row_slice = (
+            row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
+        )
+        col_slice = (
+            col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
+        )
         window = Window.from_slices(row_slice, col_slice)
 
         # Read data chunk and update metadata
@@ -292,7 +308,9 @@ class ChunkedReader:
         new_coords_len = self._get_new_md_meta_coordinates_len(new_coords)
 
         # Rearrange data according to pattern
-        rearranged_data = rearrange(data_chunk, self.dataset.md_meta["md:pattern"], **new_coords_len)
+        rearranged_data = rearrange(
+            data_chunk, self.dataset.md_meta["md:pattern"], **new_coords_len
+        )
 
         return rearranged_data, (new_coords, new_coords_len)
 

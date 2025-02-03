@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, List, Union
-from mrio.types import SliceTuple
 from types import EllipsisType
+from typing import Any
+
+from mrio.type_definitions import SliceTuple
 
 
 class SliceTransformer:
@@ -16,12 +17,13 @@ class SliceTransformer:
 
     def _validate_slice(self, s: slice) -> None:
         """Validate slice start and stop values."""
-        if s.start is not None and s.stop is not None:
-            if s.start > s.stop:
-                msg = f"Invalid slice: start ({s.start}) cannot be greater than stop ({s.stop})"
-                raise ValueError(msg)
+        if s.start is not None and s.stop is not None and s.start > s.stop:
+            msg = f"Invalid slice: start ({s.start}) cannot be greater than stop ({s.stop})"
+            raise ValueError(msg)
 
-    def _make_slice(self, val: Union[int, slice, List[int], EllipsisType], dim_idx: int) -> Union[slice, List[int]]:
+    def _make_slice(
+        self, val: int | slice | list[int] | EllipsisType, dim_idx: int
+    ) -> slice | list[int]:
         """Convert input value to appropriate slice format."""
         # Check if it's one of the last two dimensions
         is_last_two_dims = dim_idx >= self.ndim - 2

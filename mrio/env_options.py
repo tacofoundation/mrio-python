@@ -1,9 +1,10 @@
-from typing import Dict, Union, Literal
+from typing import ClassVar, Literal
+
 from rasterio.env import Env
 
 
 class MRIOConfig:
-    DEFAULT_CONFIG = {
+    DEFAULT_CONFIG: ClassVar[dict[str, str | int]] = {
         "GDAL_HTTP_MERGE_CONSECUTIVE_RANGES": "YES",
         "GDAL_HTTP_MULTIPLEX": "YES",
         "GDAL_DISABLE_READDIR_ON_OPEN": "FALSE",
@@ -17,7 +18,7 @@ class MRIOConfig:
         "GDAL_BAND_BLOCK_CACHE": "AUTO",
     }
 
-    MRIO_CONFIG = {
+    MRIO_CONFIG: ClassVar[dict[str, str | int]] = {
         "GDAL_HTTP_MERGE_CONSECUTIVE_RANGES": "YES",
         "GDAL_HTTP_MULTIPLEX": "YES",
         "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR",
@@ -33,7 +34,7 @@ class MRIOConfig:
     }
 
     @staticmethod
-    def get_env(config: Union[Literal["default", "mrio"], dict[str, str]] = "mrio") -> Env:
+    def get_env(config: Literal["default", "mrio"] | dict[str, str] = "mrio") -> Env:
         """
         Get a rasterio environment with the specified configuration.
 
@@ -60,7 +61,7 @@ class MRIOConfig:
         return Env(**settings)
 
     @staticmethod
-    def print_config(config: Dict) -> None:
+    def print_config(config: dict) -> None:
         """Print configuration settings in a readable format."""
         print("\nRasterio/GDAL Configuration:")
         for key, value in sorted(config.items()):

@@ -3,15 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
-from typing import List, Optional, TypeVar, Union, Literal, Any
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 import rasterio as rio
 
+from mrio import errors as mrio_errors
+from mrio.env_options import MRIOConfig
 from mrio.protocol import DatasetReaderProtocol
 from mrio.readers import DatasetReader
 from mrio.writers import DatasetWriter
-from mrio.env_options import MRIOConfig
 
 T = TypeVar("T", bound="Collection")
 
@@ -40,21 +41,34 @@ class ImageQuery:
         #    if min_x >= max_x or min_y >= max_y:
         #        raise ValueError("Invalid bounds: min values must be less than max values")
         if self.date_range and self.date_range[0] > self.date_range[1]:
-            raise ValueError("Invalid date range: start date must be before end date")
+            raise mrio_errors.EEInvalidDateRangeError()
 
-    def with_bands(self, bands: List[str]) -> ImageQuery:
+    def with_bands(self, bands: list[str]) -> ImageQuery:
         """Create new query with updated bands."""
-        return ImageQuery(filepath=self.filepath, bands=tuple(bands), date_range=self.date_range, bounds=self.bounds)
+        return ImageQuery(
+            filepath=self.filepath,
+            bands=tuple(bands),
+            date_range=self.date_range,
+            bounds=self.bounds,
+        )
 
     def with_dates(self, start_date: datetime, end_date: datetime) -> ImageQuery:
         """Create new query with updated date range."""
         return ImageQuery(
-            filepath=self.filepath, bands=self.bands, date_range=(start_date, end_date), bounds=self.bounds
+            filepath=self.filepath,
+            bands=self.bands,
+            date_range=(start_date, end_date),
+            bounds=self.bounds,
         )
 
     def with_bounds(self, bounds: tuple[float, float, float, float]) -> ImageQuery:
         """Create new query with updated bounds."""
-        return ImageQuery(filepath=self.filepath, bands=self.bands, date_range=self.date_range, bounds=bounds)
+        return ImageQuery(
+            filepath=self.filepath,
+            bands=self.bands,
+            date_range=self.date_range,
+            bounds=bounds,
+        )
 
 
 class Collection:
@@ -66,14 +80,16 @@ class Collection:
         self,
         filepath: str,
         engine: str = "numpy",
-        env_options: Union[Literal["mrio", "default"], dict[str, str]] = "mrio",
+        env_options: Literal["mrio", "default"] | dict[str, str] = "mrio",
         **kwargs: Any,
     ) -> None:
         """Initialize the ImageCollection."""
         self._query = ImageQuery(filepath=filepath)
         self._engine = engine
         with MRIOConfig.get_env(env_options):
-            self._dataset: DatasetReaderProtocol = DatasetReader(filepath, engine=engine, **kwargs)
+            self._dataset: DatasetReaderProtocol = DatasetReader(
+                filepath, engine=engine, **kwargs
+            )
         self._cache: dict = {}
 
     @property
@@ -81,11 +97,11 @@ class Collection:
         """Lazy loading of dataset."""
         return self._dataset
 
-    def select(self: T, bands: List[str]) -> T:
+    def select(self: T, bands: list[str]) -> T:
         """Select specific bands from the image."""
         if not set(bands).issubset(self.dataset.coords["band"]):
             available = ", ".join(self.dataset.coords["band"])
-            raise ValueError(f"Invalid bands. Available bands: {available}")
+            raise mrio_errors.EEInvalidBandsError(available)
 
         self._query = self._query.with_bands(bands)
         return self
@@ -96,12 +112,14 @@ class Collection:
             start = datetime.strptime(start_date, "%Y-%m-%d")
             end = datetime.strptime(end_date, "%Y-%m-%d")
         except ValueError as e:
-            raise ValueError(f"Invalid date format. Use YYYY-MM-DD: {e}")
+            raise mrio_errors.EEInvalidDateFormatError(e) from e
 
         self._query = self._query.with_dates(start, end)
         return self
 
-    def FilterBounds(self: T, min_x: float, min_y: float, max_x: float, max_y: float) -> T:
+    def FilterBounds(
+        self: T, min_x: float, min_y: float, max_x: float, max_y: float
+    ) -> T:
         """Filter by geographic bounds."""
         bounds = (min_x, min_y, max_x, max_y)
         self._query = self._query.with_bounds(bounds)
@@ -109,7 +127,7 @@ class Collection:
 
     @staticmethod
     @lru_cache(maxsize=128)
-    def _check_continuous_indices(indices: tuple[int, ...]) -> Optional[slice]:
+    def _check_continuous_indices(indices: tuple[int, ...]) -> slice | None:
         """Check if indices are continuous and convert to slice if possible."""
         if not indices:
             return slice(None)
@@ -124,8 +142,18 @@ class Collection:
 
     def _get_selection_indices(
         self,
-    ) -> tuple[Union[slice, List[int]], Union[slice, List[int]], tuple[slice, slice], Optional[rio.Affine]]:
-        """Get all selection indices and transform in one pass."""
+    ) -> tuple[
+        slice | list[int], slice | list[int], tuple[slice, slice], rio.Affine | None
+    ]:
+        """Get indices for subsetting data along bands, dates and spatial dimensions.
+
+        Returns:
+            Tuple containing:
+                - Band indices as slice or int list
+                - Date indices as slice or int list
+                - Bounds indices as (y,x) tuple of slices
+                - Affine transform if bounds specified, else None
+        """
         band_idx = slice(None)
         date_idx = slice(None)
         bounds_idx = (slice(None), slice(None))
@@ -133,17 +161,28 @@ class Collection:
 
         # Process bands
         if self._query.bands:
-            band_indices = tuple(self.dataset.coords["band"].index(b) for b in self._query.bands)
-            band_idx = self._check_continuous_indices(band_indices) or list(band_indices)
+            band_indices = tuple(
+                self.dataset.coords["band"].index(b) for b in self._query.bands
+            )
+            band_idx = self._check_continuous_indices(band_indices) or list(
+                band_indices
+            )
 
         # Process dates
         if self._query.date_range:
             start, end = self._query.date_range
-            dates = [datetime.fromisoformat(d) for d in self.dataset.attrs["md:time_start"]]
-            date_indices = tuple(i for i, date in enumerate(dates) if start <= date <= end)
+            dates = [
+                datetime.fromisoformat(d) for d in self.dataset.attrs["md:time_start"]
+            ]
+            date_indices = tuple(
+                i for i, date in enumerate(dates) if start <= date <= end
+            )
             if not date_indices:
-                raise ValueError("No dates found within specified range")
-            date_idx = self._check_continuous_indices(date_indices) or list(date_indices)
+                raise mrio_errors.EENoDateError()
+
+            date_idx = self._check_continuous_indices(date_indices) or list(
+                date_indices
+            )
 
         # Process bounds
         if self._query.bounds:
@@ -164,8 +203,11 @@ class Collection:
         query_bounds = self._query.bounds
 
         # IMPORTANT: Get the actual block size from the dataset profile
-        if "blockxsize" not in self.dataset.profile or "blockysize" not in self.dataset.profile:
-            raise ValueError("Dataset profile missing block size information")
+        if (
+            "blockxsize" not in self.dataset.profile
+            or "blockysize" not in self.dataset.profile
+        ):
+            raise mrio_errors.EEMissingBlockSizeError()
 
         block_width = self.dataset.profile["blockxsize"]
         block_height = self.dataset.profile["blockysize"]
@@ -181,15 +223,27 @@ class Collection:
 
         # Calculate initial pixel coordinates
         x_start = max(0, int((query_bounds[0] - img_bounds[0]) * x_scale))
-        x_end = min(self.dataset.shape[-1], int(np.ceil((query_bounds[2] - img_bounds[0]) * x_scale)))
+        x_end = min(
+            self.dataset.shape[-1],
+            int(np.ceil((query_bounds[2] - img_bounds[0]) * x_scale)),
+        )
         y_start = max(0, int((img_bounds[3] - query_bounds[3]) * y_scale))
-        y_end = min(self.dataset.shape[-2], int(np.ceil((img_bounds[3] - query_bounds[1]) * y_scale)))
+        y_end = min(
+            self.dataset.shape[-2],
+            int(np.ceil((img_bounds[3] - query_bounds[1]) * y_scale)),
+        )
 
         # Snap to block boundaries using actual block dimensions
         x_start = (x_start // block_width) * block_width
         y_start = (y_start // block_height) * block_height
-        x_end = min(((x_end + block_width - 1) // block_width) * block_width, self.dataset.shape[-1])
-        y_end = min(((y_end + block_height - 1) // block_height) * block_height, self.dataset.shape[-2])
+        x_end = min(
+            ((x_end + block_width - 1) // block_width) * block_width,
+            self.dataset.shape[-1],
+        )
+        y_end = min(
+            ((y_end + block_height - 1) // block_height) * block_height,
+            self.dataset.shape[-2],
+        )
 
         # Calculate new transform based on actual pixel edges
         new_transform = rio.Affine(
@@ -225,7 +279,9 @@ class Collection:
         # Prepare metadata
         md_coords = self._prepare_coordinates(band_idx, date_idx)
         md_attrs = self._prepare_attributes(date_idx)
-        md_pattern = " -> ".join(map(str.strip, self.dataset.md_meta["md:pattern"].split("->")[::-1]))
+        md_pattern = " -> ".join(
+            map(str.strip, self.dataset.md_meta["md:pattern"].split("->")[::-1])
+        )
 
         # Create final profile
 
@@ -263,23 +319,29 @@ class Collection:
 
         return output_path
 
-    def _prepare_coordinates(self, band_idx: Union[slice, List[int]], date_idx: Union[slice, List[int]]) -> dict:
+    def _prepare_coordinates(
+        self, band_idx: slice | list[int], date_idx: slice | list[int]
+    ) -> dict:
         """Prepare coordinate metadata."""
         coords = dict(self.dataset.coords)
 
         if self._query.bands:
             coords["band"] = (
-                coords["band"][band_idx] if isinstance(band_idx, slice) else [coords["band"][i] for i in band_idx]
+                coords["band"][band_idx]
+                if isinstance(band_idx, slice)
+                else [coords["band"][i] for i in band_idx]
             )
 
         if self._query.date_range:
             coords["time"] = (
-                coords["time"][date_idx] if isinstance(date_idx, slice) else [coords["time"][i] for i in date_idx]
+                coords["time"][date_idx]
+                if isinstance(date_idx, slice)
+                else [coords["time"][i] for i in date_idx]
             )
 
         return coords
 
-    def _prepare_attributes(self, date_idx: Union[slice, List[int]]) -> dict:
+    def _prepare_attributes(self, date_idx: slice | list[int]) -> dict:
         """Prepare attribute metadata."""
         attrs = dict(self.dataset.attrs)
 
@@ -288,18 +350,20 @@ class Collection:
 
         time_fields = ["md:time_start", "md:id", "md:time_end"]
 
-        for field in time_fields:
-            if field not in attrs:
+        for time_field in time_fields:
+            if time_field not in attrs:
                 continue
 
-            attrs[field] = (
-                attrs[field][date_idx] if isinstance(date_idx, slice) else [attrs[field][i] for i in date_idx]
+            attrs[time_field] = (
+                attrs[time_field][date_idx]
+                if isinstance(date_idx, slice)
+                else [attrs[time_field][i] for i in date_idx]
             )
 
         return attrs
 
     # Public utility methods
-    def bandNames(self) -> List[str]:
+    def bandNames(self) -> list[str]:
         """Return available band names."""
         return list(self.dataset.coords["band"])
 

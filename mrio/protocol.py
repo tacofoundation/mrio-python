@@ -7,14 +7,7 @@ implementations that handle multi-dimensional COG files.
 
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Literal,
-    Protocol,
-    Union,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Any, Literal, Protocol, Union, runtime_checkable
 
 import numpy as np
 import xarray as xr

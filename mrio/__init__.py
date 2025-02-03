@@ -22,26 +22,27 @@ from __future__ import annotations
 
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, Literal, TypeVar, overload, Union
+from typing import Any, Literal, TypeVar, overload
 
 # Core rasterio imports
 from rasterio import band, crs, io, profiles, transform, windows
 from rasterio.crs import CRS
-from mrio.env_options import MRIOConfig
+from rasterio.env import Env
 from rasterio.profiles import DefaultGTiffProfile, Profile
 from rasterio.transform import Affine, from_bounds, from_gcps, from_origin
 from rasterio.windows import Window
-from rasterio.env import Env
+
+from mrio.env_options import MRIOConfig
 
 from .earthengine_api import Collection
 
 # Local imports
 from .errors import MRIOError
 from .readers import DatasetReader
-from .types import DataArray, PathLike
+from .temporal_utils import stack_temporal, unstack_temporal
+from .type_definitions import DataArray, PathLike
 from .validators import is_mcog, is_tcog
 from .writers import DatasetWriter
-from .temporal_utils import stack_temporal, unstack_temporal
 
 __version__ = version("mrio")
 
@@ -85,7 +86,7 @@ def open(
 def open(
     file_path: PathLike,
     mode: str = Mode.READ,
-    read_env_options: Union[Literal["mrio", "default"], dict[str, str]] = "mrio",
+    read_env_options: Literal["mrio", "default"] | dict[str, str] = "mrio",
     read_engine: str = "numpy",
     **kwargs: Any,
 ) -> DatasetReader | DatasetWriter:
@@ -134,7 +135,7 @@ def open(
 def read(
     file_path: PathLike,
     engine: str = "numpy",
-    env_options: Union[Literal["mrio", "default"], dict[str, str]] = "mrio",
+    env_options: Literal["mrio", "default"] | dict[str, str] = "mrio",
     **kwargs: Any,
 ) -> DatasetReader:
     """Convenience function to read a dataset file.
@@ -197,11 +198,11 @@ def write(file_path: PathLike, data: DataArray, **kwargs: Any) -> DatasetWriter:
 
 # Export public symbols
 __all__ = [
-    "Env",
     "CRS",
     "Affine",
-    "DefaultGTiffProfile",
     "Collection",
+    "DefaultGTiffProfile",
+    "Env",
     "Profile",
     "Window",
     "__version__",
@@ -216,9 +217,9 @@ __all__ = [
     "open",
     "profiles",
     "read",
+    "stack_temporal",
     "transform",
+    "unstack_temporal",
     "windows",
     "write",
-    "stack_temporal",
-    "unstack_temporal",
 ]

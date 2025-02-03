@@ -8,20 +8,20 @@ from __future__ import annotations
 
 import json
 import warnings
-from importlib import import_module
 from functools import lru_cache
-from typing import Any, ClassVar, Literal, Union, List, Dict
+from importlib import import_module
+from typing import Any, ClassVar, Literal, Union
 
 import numpy as np
 import rasterio as rio
-
 from einops import rearrange
 from numpy.typing import NDArray
 from typing_extensions import Self
-from mrio.types import PathLike
 
+from mrio import errors as mrio_errors
 from mrio.chunk_reader import ChunkedReader
 from mrio.slice_transformer import SliceTransformer
+from mrio.type_definitions import PathLike
 
 # Type aliases for better readability
 MetadataDict = dict[str, Any]
@@ -29,7 +29,7 @@ Profile = dict[str, Any]
 Coords = dict[str, list[Any]]
 
 
-DataArray = Union[NDArray[Any], "xr.DataArray"]
+DataArray = Union[NDArray[Any], Any]  # Any for xarray.DataArray
 
 # Constants
 MD_METADATA_KEY: str = "MD_METADATA"
@@ -139,8 +139,7 @@ class DatasetReader:
         try:
             self._file = rio.open(self.file_path, "r", *args, **kwargs)
         except Exception as e:
-            msg = f"Failed to open {file_path}: {e}"
-            raise OSError(msg)
+            raise mrio_errors.ReadersFailedToOpenError(self.file_path, e) from e
 
         self._fast_initialize()
 
@@ -234,10 +233,10 @@ class DatasetReader:
             metadata = self._file.tags().get(MD_METADATA_KEY)
             if not metadata:
                 return None
-
-            metadata_dict = json.loads(metadata)
-            self._enhance_metadata(metadata_dict)
-            return metadata_dict
+            else:
+                metadata_dict = json.loads(metadata)
+                self._enhance_metadata(metadata_dict)
+                return metadata_dict
 
         except Exception as e:
             warnings.warn(f"Metadata loading failed: {e}", stacklevel=2)
@@ -251,12 +250,16 @@ class DatasetReader:
 
         """
         if "md:dimensions" not in metadata_dict:
-            metadata_dict["md:dimensions"] = metadata_dict["md:pattern"].split("->")[1].split()
+            metadata_dict["md:dimensions"] = (
+                metadata_dict["md:pattern"].split("->")[1].split()
+            )
 
         if "md:coordinates_len" not in metadata_dict:
             coords = metadata_dict["md:coordinates"]
             dims = metadata_dict["md:dimensions"]
-            metadata_dict["md:coordinates_len"] = {band: len(coords[band]) for band in dims if band in coords}
+            metadata_dict["md:coordinates_len"] = {
+                band: len(coords[band]) for band in dims if band in coords
+            }
 
     def _read(self, *args: Any, **kwargs: Any) -> DataArray:
         """Internal method to read raw data from the file.
@@ -446,9 +449,9 @@ class DatasetReader:
     def _create_xarray(
         self,
         data: NDArray[Any],
-        dims: List[str],
-        coords: Dict[str, Any],
-        attrs: Dict[str, Any] | None = None,
+        dims: list[str],
+        coords: dict[str, Any],
+        attrs: dict[str, Any] | None = None,
     ) -> Any:
         """Create an xarray DataArray from input data and metadata.
 
@@ -475,4 +478,4 @@ class DatasetReader:
                 fastpath=False,
             )
         except ImportError:
-            raise ImportError("xarray is required for this operation.\nInstall it via: pip install xarray")
+            raise mrio_errors.ReadersInstallxarrayError() from None

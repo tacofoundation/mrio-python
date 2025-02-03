@@ -2,18 +2,18 @@
 
 import json
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from datetime import datetime
-from typing import List, Union, Optional, Dict, Any, Literal
-from os import PathLike
+from pathlib import Path
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import rasterio as rio
-from mrio.types import PathLike
-from mrio.writers import DatasetWriter
 
+from mrio import errors as mrio_errors
 from mrio.env_options import MRIOConfig
 from mrio.readers import DatasetReader
+from mrio.type_definitions import PathLike
+from mrio.writers import DatasetWriter
 
 
 def merge_profiles(base: dict, updates: dict) -> dict:
@@ -38,7 +38,7 @@ def merge_profiles(base: dict, updates: dict) -> dict:
     return result
 
 
-def validate_cog_spatial_consistency(profiles: List[dict]) -> dict:
+def validate_cog_spatial_consistency(profiles: list[dict]) -> dict:
     """
     Validate spatial consistency across all COG files and return base profile.
 
@@ -56,21 +56,18 @@ def validate_cog_spatial_consistency(profiles: List[dict]) -> dict:
     """
     base = profiles[0]
 
-    for i, profile in enumerate(profiles[1:], 1):
+    for idx, profile in enumerate(profiles[1:], 1):
         # Check CRS
         if base["crs"] != profile["crs"]:
-            raise ValueError(f"CRS mismatch: Image {i} has {profile['crs']}, expected {base['crs']}")
+            raise mrio_errors.TemporalCRSError(idx, profile, base)
 
         # Check transform with numpy allclose for float comparison
         if not np.allclose(base["transform"], profile["transform"]):
-            raise ValueError(f"Transform mismatch: Image {i} has different transform")
+            raise mrio_errors.TemporalTransformError(idx)
 
         # Check dimensions
         if base["width"] != profile["width"] or base["height"] != profile["height"]:
-            raise ValueError(
-                f"Dimension mismatch: Image {i} is {profile['width']}x{profile['height']}, "
-                f"expected {base['width']}x{base['height']}"
-            )
+            raise mrio_errors.TemporalDimensionError(idx, profile, base)
     return base
 
 
@@ -83,44 +80,58 @@ def read_cog_file(file: PathLike) -> tuple[np.ndarray, dict]:
 def create_metadata_profile(
     base_profile: dict,
     dataset: np.ndarray,
-    files: List[PathLike],
-    start_dates: List[Union[datetime, int]],
-    end_dates: Optional[List[Union[datetime, int]]] = None,
+    files: list[PathLike],
+    start_dates: list[Union[datetime, int]],
+    end_dates: Optional[list[Union[datetime, int]]] = None,
     blocksize: int = 64,
 ) -> dict:
     """Create metadata profile using full base profile."""
 
     # Convert dates to required formats
-    start_dates_int = [int(x.timestamp()) if isinstance(x, datetime) else x for x in start_dates]
-    start_dates_str = [x.strftime("%Y%m%d") if isinstance(x, datetime) else str(x) for x in start_dates]
+    start_dates_int = [
+        int(x.timestamp()) if isinstance(x, datetime) else x for x in start_dates
+    ]
+    start_dates_str = [
+        x.strftime("%Y%m%d") if isinstance(x, datetime) else str(x) for x in start_dates
+    ]
 
     # Start with complete base profile
     profile = base_profile.copy()
 
     # Update with temporal stack specific metadata
-    profile.update({
-        "blocksize": blocksize,
-        "md:pattern": "time band y x -> (band time) y x",
-        "md:coordinates": {"time": start_dates_str, "band": [f"B{i:02d}" for i in range(1, dataset.shape[1] + 1)]},
-        "md:attributes": {"md:id": [Path(x).stem for x in files], "md:time_start": start_dates_int},
-    })
+    profile.update(
+        {
+            "blocksize": blocksize,
+            "md:pattern": "time band y x -> (band time) y x",
+            "md:coordinates": {
+                "time": start_dates_str,
+                "band": [f"B{i:02d}" for i in range(1, dataset.shape[1] + 1)],
+            },
+            "md:attributes": {
+                "md:id": [Path(x).stem for x in files],
+                "md:time_start": start_dates_int,
+            },
+        }
+    )
 
     # Add end dates if provided
     if end_dates:
-        end_dates_int = [int(x.timestamp()) if isinstance(x, datetime) else x for x in end_dates]
+        end_dates_int = [
+            int(x.timestamp()) if isinstance(x, datetime) else x for x in end_dates
+        ]
         profile["md:attributes"]["md:time_end"] = end_dates_int
 
     return profile
 
 
 def stack_temporal(
-    cog_files: List[PathLike],
+    cog_files: list[PathLike],
     output_file: PathLike,
-    start_date: Union[List[int], List[datetime]],
+    start_date: Union[list[int], list[datetime]],
     blocksize: Optional[int] = 64,
-    end_date: Optional[Union[List[int], List[datetime]]] = None,
+    end_date: Optional[Union[list[int], list[datetime]]] = None,
     n_threads: int = 4,
-    **kwargs: Dict[str, Any],
+    **kwargs: dict[str, Any],
 ) -> Path:
     """
     Stack multiple COG files into a single multitemporal COG file.
@@ -147,9 +158,9 @@ def stack_temporal(
     """
     # Validate inputs
     if len(cog_files) != len(start_date):
-        raise ValueError("Number of files must match number of start dates")
+        raise mrio_errors.TemporalFileDateMismatchError()
     if end_date and len(end_date) != len(cog_files):
-        raise ValueError("Number of end dates must match number of files")
+        raise mrio_errors.TemporalFileDateMismatchError()
 
     # Read files in parallel
     with ThreadPoolExecutor(max_workers=n_threads) as executor:
@@ -165,7 +176,9 @@ def stack_temporal(
     dataset = np.array(data_arrays)
 
     # Create metadata profile
-    profile = create_metadata_profile(base_profile, dataset, cog_files, start_date, end_date, blocksize)
+    profile = create_metadata_profile(
+        base_profile, dataset, cog_files, start_date, end_date, blocksize
+    )
 
     # Merge with kwargs, preserving md:attributes
     cog_profile = merge_profiles(profile, kwargs)
@@ -193,10 +206,10 @@ def stack_temporal(
 def unstack_temporal(
     filepath: PathLike,
     output_dir: PathLike,
-    read_env_options: Union[Literal["mrio", "default"], Dict[str, str]] = "mrio",
+    read_env_options: Union[Literal["mrio", "default"], dict[str, str]] = "mrio",
     n_threads: int = 4,
-    **kwargs: Dict[str, Any],
-) -> List[Path]:
+    **kwargs: dict[str, Any],
+) -> list[Path]:
     """Unstack a temporal Cloud Optimized GeoTIFF (COG) file into multiple single-timestep COG files.
 
     Args:
@@ -226,7 +239,7 @@ def unstack_temporal(
             # Extract other metadata attributes
             other_attributes = {
                 key: attributes[key]
-                for key in attributes.keys()
+                for key in attributes
                 if key not in ["md:id", "md:time_start", "md:time_end"]
             }
 
@@ -253,7 +266,11 @@ def unstack_temporal(
 
                 # Prepare metadata for this timestep
                 md_meta = {
-                    "md:attributes": {"md:id": filenames[idx], "md:time_start": time_start[idx], **other_attributes}
+                    "md:attributes": {
+                        "md:id": filenames[idx],
+                        "md:time_start": time_start[idx],
+                        **other_attributes,
+                    }
                 }
 
                 if time_end:
