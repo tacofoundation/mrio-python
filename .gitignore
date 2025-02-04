@@ -175,3 +175,6 @@ poetry.lock
 poetry.toml
 tox.ini
 demo.py
+Makefile
+poetry.lock
+poetry.toml
