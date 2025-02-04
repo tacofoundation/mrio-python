@@ -23,7 +23,13 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from mrio.protocol import DatasetReaderProtocol
-    from mrio.type_definitions import Coordinates, CoordinatesLen, DimensionFilter, FilterCondition, MetadataDict
+    from mrio.type_definitions import (
+        Coordinates,
+        CoordinatesLen,
+        DimensionFilter,
+        FilterCondition,
+        MetadataDict,
+    )
 
 
 class ChunkedReader:

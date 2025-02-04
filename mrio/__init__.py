@@ -2,8 +2,8 @@
 multi-dimensional and standard COG files.
 
 This package extends rasterio with multi-dimensional data support and provides a simple
-interface for I/O operations similar to rasterio. Additionally, for users who prefer
-working with xarray, MRIO provides an xarray-like and Google Earth Engine-like interface
+interface for I/O operations. Additionally, for users who prefer working with xarray,
+MRIO provides an xarray-like and Google Earth Engine-like interface
 for reading multi-dimensional COG files.
 
 Example:
@@ -26,6 +26,7 @@ from typing import Any, Literal, TypeVar, overload
 
 # Core rasterio imports
 from rasterio import band, crs, io, profiles, transform, windows
+from rasterio._version import gdal_version, get_geos_version, get_proj_version
 from rasterio.crs import CRS
 from rasterio.env import Env
 from rasterio.profiles import DefaultGTiffProfile, Profile
@@ -45,6 +46,11 @@ from .validators import is_mcog, is_tcog
 from .writers import DatasetWriter
 
 __version__ = version("mrio")
+
+# Stole this from rasterio
+__gdal_version__ = gdal_version()
+__geos_version__ = ".".join([str(version) for version in get_proj_version()])
+__proj_version__ = ".".join([str(version) for version in get_geos_version()])
 
 
 T = TypeVar("T", DatasetReader, DatasetWriter)
