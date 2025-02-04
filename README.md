@@ -71,16 +71,3 @@ This project is licensed under the CC0 1.0 Universal Public Domain Dedication - 
 ### Changes
 
 See the [CHANGELOG](CHANGELOG.md) file for details.
-
-### Donate
-
-Did you find this project useful? It wouldn't be possible without the support of the 
-[GDAL community](https://gdal.org/en/stable/community/index.html). Consider donating directly to 
-GDAL maintainers through GitHub Sponsors or via NumFOCUS to support continued development.
-
-| Donation Links | Organization |
-| --- | --- |
-| [https://numfocus.org/donate-to-gdal](https://numfocus.org/donate-to-gdal) | NumFOCUS (GDAL's fiscal sponsor) |
-| [https://github.com/sponsors/nyalldawson](https://github.com/sponsors/nyalldawson) | Nyall Dawson |
-| [https://github.com/sponsors/rouault](https://github.com/sponsors/rouault) | Even Rouault |
-| [https://github.com/sponsors/hobu](https://github.com/sponsors/hobu) | Howard Butler |
