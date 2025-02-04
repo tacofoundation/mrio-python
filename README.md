@@ -2,9 +2,7 @@
 
 [![codecov](https://codecov.io/gh/tacofoundation/mrio-python/graph/badge.svg?token=GDDIMU2WQR)](https://codecov.io/gh/tacofoundation/mrio-python)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
-<a href="https://github.com/astral-sh/ruff">
-  <img src="https://github-production-user-asset-6210df.s3.amazonaws.com/16768318/409556616-365ffedd-6c8d-45c0-9d50-1b522dcad17f.svg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250204%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250204T125334Z&X-Amz-Expires=300&X-Amz-Signature=3595ebe8188b60c78b8bfdbfd08495a5f30e591802e268211ef28302fc85a0b9&X-Amz-SignedHeaders=host"/>
-</a>
+[![Ruff](https://camo.githubusercontent.com/bb88127790fb054cba2caf3f3be2569c1b97bb45a44b47b52d738f8781a8ede4/68747470733a2f2f696d672e736869656c64732e696f2f656e64706f696e743f75726c3d68747470733a2f2f7261772e67697468756275736572636f6e74656e742e636f6d2f636861726c6965726d617273682f727566662f6d61696e2f6173736574732f62616467652f76312e6a736f6e)](https://github.com/charliermarsh/ruff)
 [![Docs](https://img.shields.io/readthedocs/pavics-weaver)](https://tacofoundation.github.io/mrio/)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
