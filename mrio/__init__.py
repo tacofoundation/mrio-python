@@ -75,7 +75,7 @@ class Mode:
 def open(
     file_path: PathLike,
     mode: Literal["r"] = "r",
-    engine: str = "numpy",
+    read_engine: str = "numpy",
     **kwargs: Any,
 ) -> DatasetReader: ...
 
@@ -84,7 +84,7 @@ def open(
 def open(
     file_path: PathLike,
     mode: Literal["w"],
-    engine: str = "numpy",
+    read_engine: str = "numpy",
     **kwargs: Any,
 ) -> DatasetWriter: ...
 
