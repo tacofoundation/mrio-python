@@ -12,6 +12,21 @@ class MRIOError(Exception):
 class ValidationError(MRIOError):
     """Raised when data validation fails."""
 
+# Error for Slice Transformer (slice_transformer.py)
+class SliceEllipsisError(IndexError):
+    def __init__(self):
+        super().__init__("Only one ellipsis (...) allowed in indexing expression")
+
+
+class SliceEllipsisTooManyIndicesError(IndexError):
+    def __init__(self, ndim):
+        super().__init__(f"Too many indices for {ndim}D array")
+
+
+class SliceUnsupportedTypeError(TypeError):
+    def __init__(self, key):
+        super().__init__(f"Unsupported key type: {type(key)}")
+
 
 # Error for Earth Engine API (fields.py)
 class FieldsCoordinateMDPattern(ValidationError):
@@ -41,19 +56,23 @@ class FieldsEmptyCoordinatesError(ValidationError):
 
 class FieldsPatternParseError(ValueError):
     def __init__(self):
-        super().__init("Pattern must be validated before parsing")
+        super().__init__("Pattern must be validated before parsing")
 
 
 class FieldsCoordinateMismatchError(ValueError):
     def __init__(self):
-        super().__init(
+        super().__init__(
             "Coordinate names after '->' must match in length with names before '->'"
         )
 
 
 class FieldsMissingFieldsError(ValueError):
     def __init__(self, missing_fields):
-        super().__init(f"Mandatory fields missing: {', '.join(missing_fields)}")
+        super().__init__(f"Mandatory fields missing: {', '.join(missing_fields)}")
+
+class FieldsBlockZSizeError(ValueError):
+    def __init__(self):
+        super().__init__("BlockZSize must be a positive integer")
 
 
 # Error for Earth Engine API (earthengine_api.py)
@@ -100,7 +119,7 @@ class ReadersFailedToOpenError(RasterioIOError):
 
 class ReadersInstallxarrayError(ImportError):
     def __init__(self):
-        super().__init(
+        super().__init__(
             "xarray is required for this operation.\nInstall it via: pip install xarray"
         )
 
@@ -108,19 +127,19 @@ class ReadersInstallxarrayError(ImportError):
 # Error for temporal_utils.py
 class TemporalCRSError(ValueError):
     def __init__(self, idx, profile, base):
-        super().__init(
+        super().__init__(
             f"CRS mismatch: Image {idx} has {profile['crs']}, expected {base['crs']}"
         )
 
 
 class TemporalTransformError(ValueError):
     def __init__(self, idx):
-        super().__init(f"Transform mismatch: Image {idx} has different transform")
+        super().__init__(f"Transform mismatch: Image {idx} has different transform")
 
 
 class TemporalDimensionError(ValueError):
     def __init__(self, idx, profile, base):
-        super().__init(
+        super().__init__(
             f"Dimension mismatch: Image {idx} is {profile['width']}x{profile['height']}, "
             f"expected {base['width']}x{base['height']}"
         )
@@ -128,12 +147,12 @@ class TemporalDimensionError(ValueError):
 
 class TemporalFileDateMismatchError(ValueError):
     def __init__(self):
-        super().__init("Number of files must match number of start dates")
+        super().__init__("Number of files must match number of start dates")
 
 
 class TemporalEndDateMismatchError(ValueError):
     def __init__(self):
-        super().__init("Number of end dates must match number of files")
+        super().__init__("Number of end dates must match number of files")
 
 
 # Error for validators.py
@@ -144,7 +163,7 @@ class ValidatorsFailedToOpenError(RasterioIOError):
 
 class ValidatorsInvalidMetadataError(json.JSONDecodeError):
     def __init__(self, e):
-        super().__init(f"Invalid metadata JSON: {e}")
+        super().__init__(f"Invalid metadata JSON: {e}")
 
 
 # Error for writers.py
@@ -155,4 +174,29 @@ class WritersFailedToOpenError(RasterioIOError):
 
 class WritersUnsupportedDataTypeError(ValueError):
     def __init__(self, data_type):
-        super().__init(f"Unsupported data type: {data_type}")
+        super().__init__(f"Unsupported data type: {data_type}")
+
+
+# Error for chunk_reader.py
+class ChunkReaderNoQueryError(MRIOError):
+    def __init__(self):
+        super().__init__("No query has been executed yet")
+
+
+class ChunkReaderNoDataError(MRIOError):
+    def __init__(self):
+        super().__init__("No data has been read yet")
+
+
+class ChunkReaderInvalidFilterError(ValueError):
+    def __init__(self):
+        super().__init__("Filter criteria must be slice, int, list, or tuple")
+
+
+class ChunkReaderInvalidConditionError(ValueError):
+    def __init__(self, cond):
+        super().__init__(f"Unsupported condition type: {type(cond)}")
+
+class ChunkReaderInvalidFilterCriteriaError(ValueError):
+    def __init__(self):
+        super().__init__("Filter criteria must be a slice object")

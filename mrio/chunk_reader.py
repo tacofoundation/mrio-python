@@ -1,7 +1,7 @@
-"""ChunkedReader module for MRIO (Multi-Resolution I/O) package.
+"""ChunkedReader module for MRIO (Multi-dimensional Raster I/O).
 
-This module provides optimized chunked reading capabilities for multi-dimensional COG files,
-with support for partial reading, dimension filtering, and metadata handling.
+This module provides chunked reading capabilities for mCOG files.
+It supports partial reading, dimensions filtering, and metadata handling.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import rasterio
 from einops import rearrange
 from rasterio.windows import Window
 
-from mrio.errors import MRIOError
+from mrio import errors
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -33,15 +33,16 @@ if TYPE_CHECKING:
 
 
 class ChunkedReader:
-    """Optimized implementation of multi-dimensional COG reading with metadata handling.
+    """Optimized implementation of mCOG reading with metadata handling.
 
-    This class provides efficient partial reading capabilities for multi-dimensional
-    COG files, handling both spatial and non-spatial dimensions. It supports
-    dimension filtering, window-based reading, and maintains correct geospatial metadata.
+    This class provides partial reading capabilities for mCOG files, handling
+    both spatial and non-spatial dimensions. It supports dimension
+    filtering, window-based reading, and updated spatial metadata after
+    each user query.
 
     Attributes:
         dataset: Source dataset implementing the DatasetProtocol interface
-        last_query: Last executed query parameters for metadata updates
+        last_query: Last executed user query (non-spatial filters, spatial slices)
         new_height: Updated height after windowed reading
         new_width: Updated width after windowed reading
         new_count: Updated band count after dimension filtering
@@ -49,7 +50,6 @@ class ChunkedReader:
     Example:
         >>> with mrio.open("multidim.tif") as src:
         ...     data= reader[1:3, :, 0:100, 0:100]
-
     """
 
     def __init__(self, dataset: DatasetReaderProtocol) -> None:
@@ -66,10 +66,18 @@ class ChunkedReader:
         self.new_count: int | None = None
 
     @staticmethod
-    def _filter_dimensions(
+    def _apply_dimension_filters(
         dims: Sequence[int], filter_criteria: Sequence[FilterCondition]
     ) -> NDArray[np.uint32]:
-        """Filter dimensions using vectorized operations.
+        """Filter dimensions using vectorized operations. MRIO support two
+        types of filters: slices and lists/tuples. Integer and Ellipsis are
+        converted to slices. Lists/tuples are tricky because they require
+        stable sorting to maintain the original order. It is not the same to
+        filter by [0, 2] than by [2, 0]. Therefore, to maintain the original
+        order, we need to sort the result of the filtering when the user
+        provides a list/tuple filter. It is only applied if at least one
+        dimension has a list or tuple. If all filters are slices, the code
+        skips the ordering step for efficiency.
 
         Args:
             dims: Sequence of dimension sizes to filter
@@ -80,57 +88,83 @@ class ChunkedReader:
 
         Example:
             >>> dims = [3, 4, 5]
-            >>> criteria = [slice(1, 3), 2, [2, 0]]  # Different from [0, 2]
-            >>> criteria = [slice(1, 3), 2, [0, 2]]  # Different from [0, 2]
-            >>> ChunkedReader._filter_dimensions(dims, criteria)
-            array([15, 7])  # Order matters!
+            >>> filter_criteria = [slice(1, 3), [0, 3], [2, 0]]  # Different from [0, 2]
+            >>> filter_criteria = [slice(1, 3), [3, 0], [0, 2]]  # Different from [0, 2]
+            >>> ChunkedReader._filter_dimensions(dims, filter_criteria)
+            array([23, 43, 38, 58, 21, 41, 36, 56]) // array([36, 56, 21, 41, 38, 58, 23, 43])
         """
+
+        # Build all grid coordinates for the given dims.
         data = np.indices(dims, dtype=np.uint32).reshape(len(dims), -1).T
+
+        # Boolean mask to keep track of which entries survive.
         mask = np.ones(data.shape[0], dtype=bool)
 
-        final_order = None
+        # Track each dimension with a list/tuple condition (for final ordering).
+        # We store tuples of (dim_index, [conditionValues]).
+        list_conditions = []
 
         for dim, condition in enumerate(filter_criteria):
+            # If the condition is a slice
             if isinstance(condition, slice):
                 if condition == slice(None):
                     continue
                 start = condition.start or 0
                 stop = condition.stop or dims[dim]
                 mask &= (data[:, dim] >= start) & (data[:, dim] < stop)
+
+            # If the condition is a integer or list/tuple
             elif isinstance(condition, (int, list, tuple)):
+
+                # If the condition is a list/tuple
                 if isinstance(condition, (list, tuple)):
-                    dim_mask = np.isin(data[:, dim], condition)
-                    mask &= dim_mask
-                    # Store the values for final ordering
-                    masked_data = data[mask]
-                    if len(masked_data) > 0:
-                        final_order = np.array(
-                            [list(condition).index(v) for v in masked_data[:, dim]]
-                        )
+                    # Keep only the entries whose coordinate is in 'condition':
+                    mask &= np.isin(data[:, dim], condition)
+
+                    # Record the list/tuple for ordering later:
+                    list_conditions.append((dim, list(condition)))
+
+                # If the condition is an integer
                 else:
                     mask &= data[:, dim] == condition
 
+        # Collect indices that survived the filter.
         result = np.nonzero(mask)[0]
 
-        if final_order is not None and len(result) > 0:
-            result = result[np.argsort(final_order)]
+        # If no dimension has a list/tuple filter, return immediately (no ordering needed).
+        if not list_conditions:
+            return result
 
-        return result + 1
+        # Otherwise, apply stable sorts for each dimension with a list/tuple condition.
+        masked_data = data[result]
+        for dim_index, cond_list in list_conditions:
+            # Create a map from value -> position in cond_list
+            position_map = {val: i for i, val in enumerate(cond_list)}
+            # Build array of sort-keys for stable sorting
+            sort_keys = np.array([position_map[val] for val in masked_data[:, dim_index]])
+            stable_order = np.argsort(sort_keys, kind="stable")
+
+            # Reorder result and masked_data in sync
+            result = result[stable_order]
+            masked_data = masked_data[stable_order]
+
+        # Convert to 1-based index before returning
+        return result
 
     def _get_new_geotransform(self) -> Affine:
-        """Calculate updated geotransform for the current window.
+        """Calculate new geotransform based on the last query.
 
         Returns:
             Updated Affine transform object
 
         Raises:
-            MRIOError: If no query has been executed yet
+            ChunkReaderNoQueryError: If no query has been executed yet
 
         """
         if self.last_query is None:
-            msg = "No query has been executed yet"
-            raise MRIOError(msg)
+            raise errors.ChunkReaderNoQueryError()
 
+        # Obtain spatial slices from the last query
         row_slice, col_slice = self.last_query[1]
 
         # Handle full slices
@@ -150,7 +184,7 @@ class ChunkedReader:
         return rasterio.windows.transform(window, self.dataset.transform)
 
     def _get_new_md_meta_coordinates(self) -> Coordinates:
-        """Update coordinates based on the current query conditions.
+        """Update md:coordinates based on the last query.
 
         Returns:
             Dictionary of updated coordinates for each dimension
@@ -160,20 +194,20 @@ class ChunkedReader:
 
         """
         if self.last_query is None:
-            msg = "No query has been executed yet"
-            raise MRIOError(msg)
+            raise errors.ChunkReaderNoQueryError()
 
         query_conditions = self.last_query[0]
         if not all(
             isinstance(cond, (slice, int, list, tuple)) for cond in query_conditions
         ):
-            msg = "Filter criteria must be slice, int, list, or tuple"
-            raise MRIOError(msg)
+            raise errors.ChunkReaderInvalidFilterError()
 
+        # Get image coordinates and dimensions
         coords = self.dataset.md_meta["md:coordinates"]
         dims = self.dataset.md_meta["md:dimensions"]
-        new_coords: Coordinates = {}
 
+        # Update coordinates based on query conditions
+        new_coords: Coordinates = {}
         for dim_index, cond in enumerate(query_conditions):
             dim_name = dims[dim_index]
             dim_coords = coords[dim_name]
@@ -183,8 +217,7 @@ class ChunkedReader:
             elif isinstance(cond, (list, tuple)):
                 updated_coord = [dim_coords[i] for i in cond]
             else:
-                msg = f"Unsupported condition type: {type(cond)}"
-                raise MRIOError(msg)
+                raise errors.ChunkReaderInvalidConditionError(cond)
 
             new_coords[dim_name] = (
                 [updated_coord]
@@ -197,20 +230,22 @@ class ChunkedReader:
     def _get_new_md_meta_coordinates_len(
         self, new_coords: Coordinates
     ) -> CoordinatesLen:
-        """Calculate lengths of updated coordinates."""
+        """Calculate lengths of updated md:coordinates."""
         return {key: len(values) for key, values in new_coords.items()}
 
     def _get_new_md_meta(self) -> MetadataDict:
-        """Generate updated metadata based on current query.
+        """Generate updated md:coordinates and md:coordinates_len based on
+        the last query.
 
         Returns:
             Dictionary containing updated metadata
 
         """
+        # Update md:cordinates and md:coordinates_len
         new_coords = self._get_new_md_meta_coordinates()
-        dims = self.dataset.md_meta["md:dimensions"]
         new_coords_len = self._get_new_md_meta_coordinates_len(new_coords)
 
+        # Update band count based on the last query
         self.new_count = math.prod(new_coords_len.values())
 
         return {
@@ -218,107 +253,163 @@ class ChunkedReader:
             "md:attributes": self.dataset.md_meta["md:attributes"],
             "md:pattern": self.dataset.md_meta["md:pattern"],
             "md:coordinates_len": new_coords_len,
-            "md:dimensions": dims,
-        }
-
-    def update_metadata(self) -> MetadataDict:
-        """Generate complete metadata dictionary with validation.
-
-        Returns:
-            Updated metadata dictionary including profile and coordinates
-
-        Raises:
-            MRIOError: If no query has been executed yet
-
-        """
-        if self.last_query is None:
-            msg = "No query has been executed yet"
-            raise MRIOError(msg)
-
-        md_meta = self._get_new_md_meta()
-        new_transform = self._get_new_geotransform()
-
-        return {
-            **self.dataset.profile,
-            "md:coordinates": md_meta["md:coordinates"],
-            "md:attributes": md_meta["md:attributes"],
-            "md:pattern": md_meta["md:pattern"],
-            "transform": new_transform,
-            "height": self.new_height,
-            "width": self.new_width,
-            "count": self.new_count,
+            "md:dimensions": self.dataset.md_meta["md:dimensions"],
         }
 
     def __getitem__(
         self, key: DimensionFilter
     ) -> tuple[NDArray[Any], tuple[Coordinates, CoordinatesLen]]:
-        """Execute a partial read operation with dimension filtering and spatial slicing.
+        """Retrieve a filtered subset of the mCOG dataset.
 
-        This method performs several key operations:
-        1. Filters the data along specified dimensions (e.g., time, bands)
-        2. Applies spatial windowing using row/column slices
-        3. Rearranges the data according to the metadata pattern
+        Processes non-spatial dimension filters and spatial slices to efficiently read
+        and restructure a subset of the dataset.
 
-        The operation sequence is:
-        1. Split the key into dimension filters and spatial slices
-        2. Reorder dimensions based on the pattern strategy
-        3. Apply dimension filtering using vectorized operations
-        4. Create a spatial window from row/column slices
-        5. Read the data chunk and rearrange according to pattern
+        Lifecycle:
+        1. Non-spatial Filtering:
+            - Reorders filters based on md:pattern
+            - Applies categorical/range filters to non-spatial dimensions
+        2. Spatial Windowing:
+            - Converts pixel slices to rasterio Window
+            - Handles blockZsize-based slicing
+        3. Data Restructuring:
+            - Reassembles blocks according to original pattern
+            - Maintains MD_METADATA and geotransform consistency
 
         Args:
-            key (DimensionFilter): A tuple containing:
-                - Dimension filters (e.g., for time, bands)
-                - Spatial slices (row_slice, col_slice)
-                Example: ((time_slice, band_slice), (row_slice, col_slice))
+            key: Filter specification tuple containing:
+                1) Non-spatial filters (band, time, simulation, etc. dimensions)
+                2) Spatial slices (height, width dimensions)
+                Example: (slice(0, 2), [3, 7], slice(100, 200), slice(300, 400))
+                ------------- [Non-spatial] ------------ [Spatial] ------------
 
         Returns:
             tuple: Contains:
-                - NDArray: The read and rearranged data
-                - tuple: Updated coordinates metadata:
-                    - Coordinates: New coordinate values
-                    - CoordinatesLen: New coordinate lengths
+                - 1) filtered_data: Restructured array subset
+                - 2) (new_coords, new_coords_len): Updated coordinate metadata:
+                    * [NEW] md:coordinates: Filtered coordinate values
+                    * [NEW] md:coordinates_len: Resulting dimension lengths
+                    * [NEW] geotransform: Updated spatial transform
 
         Raises:
-            MRIOError: If dimension filters or spatial slices are invalid
-            WindowError: If spatial window is invalid
+            InvalidDimensionError: For mismatched filter/dimension lengths
+            WindowOutOfBoundsError: For invalid spatial coordinates
+
+        Example:
+            >>> reader = ChunkedReader(dataset)
+            >>> data_subset, new_metadata = reader[(0, 1), slice(100, 200), slice(300, 400)]
         """
 
-        # Split input key into dimension filters and spatial slices
-        self.last_query = (key[:-2], key[-2:])
-        filter_criteria, (row_slice, col_slice) = self.last_query
+        # Parse input filters
+        self.last_query = (key[:-2], key[-2:]) # (Non-spatial filters, spatial slices)
+        dim_filters, (row_slice, col_slice) = self.last_query
 
-        # Get current dimension lengths from metadata
-        dims_len = tuple(self.dataset.md_meta["md:coordinates_len"].values())
+        # Align filters with storage pattern (md:pattern)
+        # This is importante because:
+        # "time band y x -> (time band) y x"
+        # IS NOT EQUAL to
+        # "time band y x -> (band time) y x"
+        pattern_order = self.get_axis_order(self.dataset.md_meta["md:pattern"])
+        ordered_filters = tuple(dim_filters[i] for i in pattern_order)
+        original_dims = tuple(self.dataset.md_meta["md:coordinates_len"].values())
+        ordered_dims = tuple(original_dims[i] for i in pattern_order)
 
-        # Reorder dimensions according to pattern strategy
-        band_order = self.get_axis_order(self.dataset.md_meta["md:pattern"])
-        filter_criteria = tuple(filter_criteria[i] for i in band_order)
-        dims_len = tuple(dims_len[i] for i in band_order)
+        # Apply dimensional subsetting to non-spatial dimensions
+        filter_mask = self._apply_dimension_filters(ordered_dims, ordered_filters)
 
-        # Apply dimension filtering
-        result = self._filter_dimensions(dims_len, filter_criteria)
-
-        # Create spatial window, defaulting to full extent if not specified
-        row_slice = (
-            row_slice if row_slice != slice(None) else slice(0, self.dataset.height)
+        # Convert spatial slices to rasterio Window
+        height_window = self._scale_slice(
+            row_slice if row_slice != slice(None) else slice(0, self.dataset.height),
+            self.dataset.blockzsize
         )
-        col_slice = (
-            col_slice if col_slice != slice(None) else slice(0, self.dataset.width)
+        width_window = self._scale_slice(
+            col_slice if col_slice != slice(None) else slice(0, self.dataset.width),
+            self.dataset.blockzsize
         )
-        window = Window.from_slices(row_slice, col_slice)
+        read_window = Window.from_slices(height_window, width_window)
 
-        # Read data chunk and update metadata
-        data_chunk = self.dataset._read(result.tolist(), window=window)
+        # Calculate chunk indices considering blockZsize
+        # We descompose each band index into: blockZsize*chunk_indices + sub_indices
+        chunk_indices, sub_indices = self._decompose_indices(
+            block_size=filter_mask,
+            indices=self.dataset.blockzsize**2
+        )
+
+        # Read and restructure data
+        raw_chunk = self.dataset._read(chunk_indices.tolist(), window=read_window)
+
+        # Reshape blocks to match original pattern (from blockzsize n to blockzsize 1)
+        block_reshaped = rearrange(
+            raw_chunk,
+            "c (h c1) (w c2) -> (c c1 c2) h w",
+            c1=self.dataset.blockzsize,
+            c2=self.dataset.blockzsize
+        )
+
+        # Filter blocks based on sub_indices
+        filtered_blocks = block_reshaped[sub_indices]
+
+        # Update md:coordinates and md:coordinates_len
         new_coords = self._get_new_md_meta_coordinates()
-        new_coords_len = self._get_new_md_meta_coordinates_len(new_coords)
+        new_dims = self._get_new_md_meta_coordinates_len(new_coords)
+        new_geotransform = self._get_new_geotransform()
 
-        # Rearrange data according to pattern
-        rearranged_data = rearrange(
-            data_chunk, self.dataset.md_meta["md:pattern"], **new_coords_len
+        # Restructure to final pattern
+        final_array = rearrange(
+            filtered_blocks,
+            self.dataset.md_meta["md:pattern"],
+            **new_dims
         )
 
-        return rearranged_data, (new_coords, new_coords_len)
+        return final_array, (new_coords, new_dims, new_geotransform)
+
+
+    def _decompose_indices(self, indices: NDArray[Any], block_size: int) -> tuple[NDArray[Any], NDArray[Any]]:
+        """Decompose indices into band and intra-band positions.
+
+        This method separates global band indices into:
+        1. Block identifiers (which block contains the band index)
+        2. Local positions (where within the block the index falls)
+
+        Args:
+            indices: Flat array of global indices to decompose
+            block_size: Number of elements per block (BLOCKZSIZE)
+
+        Returns:
+            tuple: Contains:
+                - unique_bands: Array of unique global band identifiers
+                - local_positions: Corresponding positions within blocks
+
+        Example:
+            >>> indices = np.array([0, 1, 5, 6, 7])
+            >>> blocks, positions = _decompose_indices(indices, block_size=4)
+            >>> blocks
+            array([0, 1])  # Blocks 0 and 1
+            >>> positions
+            array([0, 1, 1, 2, 3])  # Positions within blocks
+        """
+        # Calculate block identifiers and local positions
+        block_ids = (indices // block_size) + 1 # GDAL is 1-based!
+
+        # Calculate local positions within respect to the min block id
+        local_positions = indices % block_size + (block_size * (block_ids - block_ids.min()))
+
+        # Return unique blocks and corresponding positions
+        return np.unique(block_ids), local_positions
+
+
+    def _scale_slice(self, s, scalar):
+        """
+        Multiplies the start and stop of a slice object by a scalar.
+
+        Parameters:
+        s (slice): The slice object to be scaled.
+        scalar (numeric): The value to multiply the slice by.
+
+        Returns:
+        slice: A new slice object with scaled values.
+        """
+        return slice(s.start * scalar, s.stop * scalar, s.step if s.step else None)
+
 
     @staticmethod
     def get_axis_order(pattern):

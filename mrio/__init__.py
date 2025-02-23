@@ -1,10 +1,19 @@
 """MRIO (Multi-dimensional Raster I/O) is a Python package for reading and writing
 multi-dimensional and standard COG files.
 
-This package extends rasterio with multi-dimensional data support and provides a simple
-interface for I/O operations. Additionally, for users who prefer working with xarray,
-MRIO provides an xarray-like and Google Earth Engine-like interface
-for reading multi-dimensional COG files.
+This package extends the fantastic rasterio with multi-dimensional data support
+and provides a simple interface for I/O operations. Additionally, for users
+who prefer working with xarray, MRIO provides an xarray-like and Google Earth
+Engine-like interface for reading multi-dimensional COG files.
+
+MRIO utilizes TILE interleaving as its default (and strongly recommended) for
+creating multidimensional raster files.
+
+- For mCOG creation: GDAL version 3.11.0 or higher (if using TILE interleaving)
+- For mCOG reading: GDAL version 3.2.0 or higher
+
+Using TILE interleaving ensures fast and partial reads of the data, which is
+essential for working with datasets with thousand or millions of bands.
 
 Example:
     Basic usage for reading a file:
@@ -15,7 +24,6 @@ Example:
     Writing data to a file:
         >>> with mrio.open("output.tif", mode="w", **profile) as dst:
         ...     dst.write(data)
-
 """
 
 from __future__ import annotations
@@ -96,11 +104,10 @@ def open(
     read_engine: str = "numpy",
     **kwargs: Any,
 ) -> DatasetReader | DatasetWriter:
-    """Open a dataset for reading or writing with enhanced multi-dimensional support.
+    """Open a dataset for reading or writing a mCOG.
 
     This function provides a unified interface for opening both standard and
-    multi-resolution COG files. It automatically detects the file type and
-    returns the appropriate reader or writer.
+    mCOG files.
 
     Args:
         file_path: Path to the dataset file. Can be string or Path object.

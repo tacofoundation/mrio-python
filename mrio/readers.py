@@ -1,7 +1,11 @@
-"""MRIO Dataset Reader Module.
+"""MRIO dataset reader module for Multidimensional Cloud Optimized GeoTIFF (COG) files.
 
-Provides optimized reading capabilities for multi-dimensional COG files with
-metadata handling and lazy loading support. Supports both numpy and xarray outputs.
+Provides:
+- Efficient reading of multidimensional raster data with metadata
+- Lazy loading and chunked processing for large datasets
+- Seamless integration with numpy and xarray ecosystems
+- Indexing and slicing operations
+- Automatic metadata parsing and coordinate system management (spatial and non-spatial)
 """
 
 from __future__ import annotations
@@ -10,7 +14,7 @@ import json
 import warnings
 from functools import lru_cache
 from importlib import import_module
-from typing import Any, ClassVar, Literal, Union
+from typing import Any, ClassVar, Literal
 
 import numpy as np
 import rasterio as rio
@@ -23,41 +27,49 @@ from mrio.chunk_reader import ChunkedReader
 from mrio.slice_transformer import SliceTransformer
 from mrio.type_definitions import PathLike
 
+# ----------------------------
+# TYPE ALIASES & CONSTANTS
+# ----------------------------
+
+
 # Type aliases for better readability
-MetadataDict = dict[str, Any]
-Profile = dict[str, Any]
-Coords = dict[str, list[Any]]
-
-
-DataArray = Union[NDArray[Any], Any]  # Any for xarray.DataArray
+MetadataDict = dict[str, Any]   #: Type alias for metadata dictionary structure
+Profile = dict[str, Any]        #: Type alias for rasterio profile configuration
+Coords = dict[str, list[Any]]   #: Type alias for coordinate system mapping
 
 # Constants
+DataArray = NDArray[Any]| Any
 MD_METADATA_KEY: str = "MD_METADATA"
 
 
 class DatasetReader:
-    """Optimized reader for multi-dimensional COG files with metadata handling.
+    """Multidimensional COG Reader with Semantic Metadata Integration.
 
-    This class provides efficient reading capabilities with metadata handling,
-    coordinate management, and lazy loading support. It can output data as either
-    numpy arrays or xarray DataArrays.
+    Key Features:
+    - Automatic dimension recognition from MD_METADATA
+    - Block-optimized reading for cloud environments
+    - Coordinate-aware slicing and indexing
+    - Dual output support (raw arrays vs annotated xarray objects)
+    - Memory-efficient lazy loading strategies
 
-    Attributes:
-        file_path: Path to the dataset file
-        engine: Output format ('numpy' or 'xarray')
-        profile: Dataset profile information
-        md_meta: Multi-dimensional metadata
-        coords: Coordinate values for each dimension
-        dims: Dimension names
-        attrs: Dataset attributes
-        shape: Dataset shape including all dimensions
-        size: Total size in bytes
+    Architecture:
+    1. Metadata First: Parses COG tags to understand data structure
+    2. Block Optimization: Uses rasterio's block window system
+    3. Dimension Mapping: Applies Einstein notation for array transformations
+    4. Unified Interface: Presents multidimensional data as logical array
 
-    Example:
-        >>> with DatasetReader("example.tif") as ds:
-        ...     data = ds.read()  # Returns xarray.DataArray by default
-        ...     subset = ds[1:3, :, :]  # Supports array-like indexing
+    Example::
+        >>> with DatasetReader("hyperspectral.cog") as ds:
+        ...     # Access full dataset as xarray
+        ...     xr_ds = ds.read()
+        ...     # Slice using dimension-aware indexing
+        ...     subset = ds[0, :, 100:200, 100:200]
 
+    Lifecycle:
+    - __init__: File opening and basic validation
+    - _fast_initialize: Metadata-driven attribute setup
+    - read: Data loading and dimensional restructuring
+    - close: Resource cleanup and I/O termination
     """
 
     __slots__ = (
@@ -65,6 +77,7 @@ class DatasetReader:
         "args",
         "attrs",
         "block_shapes",
+        "blockzsize",
         "bounds",
         "chunks",
         "compression",
@@ -118,18 +131,21 @@ class DatasetReader:
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        """Initialize DatasetReader with optimized metadata handling.
+        """Initialize multidimensional COG reader.
 
         Args:
-            file_path: Path to the dataset file
-            engine: Output format ('numpy' or 'xarray')
-            *args: Additional positional arguments for rasterio
-            **kwargs: Additional keyword arguments for rasterio
+            file_path: Path to COG file (local or remote)
+            engine: Output format controller:
+                - 'numpy': Returns raw NDArrays
+                - 'xarray': Returns annotated DataArrays
+            *args: Rasterio open arguments (e.g., sharing=False)
+            **kwargs: Rasterio open keywords (e.g., OVERVIEW_LEVEL=2)
 
         Raises:
-            IOError: If the file cannot be opened
-
+            ReadersFailedToOpenError: On file access failure
+            ValueError: For invalid engine specification
         """
+
         self.file_path = file_path
         self.mode = "r"
         self.engine = engine
@@ -145,37 +161,52 @@ class DatasetReader:
 
     @lru_cache(maxsize=128)
     def _fast_initialize(self) -> None:
-        """Optimized initialization of attributes using direct assignment."""
+        """Optimized attribute initialization sequence
+
+        Processes:
+        1) Load md metadata
+        2) Load geometry properties
+        3) Load GDAL creation option properties
+        4) Calculate shape and size according to the n-D structure
+        """
+
         # Load profile and meta
         self.profile = self._file.profile
         self.meta = self._file.meta
 
+        # Load MD_METADATA first (we need to know if blockzsize is set)
+        self._load_md_metadata_properties()
+
         # Load geometry properties
         self._load_geometry_properties()
 
-        # Load data properties
-        self._load_data_properties()
-
-        # Load metadata properties
-        self._load_metadata_properties()
+        # Load GDAL creation option properties
+        self._load_creation_properties()
 
         # Calculate derived properties
         self._calculate_shape_and_size()
 
     def _load_geometry_properties(self) -> None:
-        """Load geometric properties from profile."""
-        self.width = self.profile["width"]
-        self.height = self.profile["height"]
+        """Extract and normalize geometric metadata.
+
+        Processes:
+        - Coordinate Reference System (CRS)
+        - Spatial transform matrix
+        - Data window/bounding box
+        - Resolution values (x, y)
+        """
         self.crs = self.profile["crs"]
-        self.transform = self.profile["transform"]
-        self.count = self.profile["count"]
+        self.transform = self.profile["transform"] * rio.Affine.scale(self.blockzsize)
+        self.width = self.profile["width"] // self.blockzsize
+        self.height = self.profile["height"] // self.blockzsize
+        self.count = self.profile["count"] * (self.blockzsize ** 2)
         self.window = self._file.window
         self.bounds = self._file.bounds
         self.res = self._file.res
 
-    def _load_data_properties(self) -> None:
-        """Load data-related properties."""
-        self.block_shapes = self._file.block_shapes[0]
+    def _load_creation_properties(self) -> None:
+        """Load and normalize GDAL creation options."""
+        self.block_shapes = tuple(x // self.blockzsize for x in self._file.block_shapes[0])
         self.indexes = self._file.indexes
         self.dtype = self._file.dtypes[0]
         self.dtypes = self._file.dtypes[0]
@@ -196,12 +227,21 @@ class DatasetReader:
         self.subdatasets = self._file.subdatasets
         self.units = self._file.units
 
-    def _load_metadata_properties(self) -> None:
-        """Load and process metadata properties."""
+    def _load_md_metadata_properties(self) -> None:
+        """Process multidimensional metadata components.
+
+        Metadata Structure:
+        - coordinates: Dimension → value mapping
+        - dimensions: Logical axis ordering
+        - attributes: Global dataset properties
+        - blockzsize: Chunk size for Z-dimension
+        """
         self.md_meta = self._fast_load_metadata()
         self.coords = self.md_meta.get("md:coordinates", {}) if self.md_meta else {}
         self.dims = self.md_meta.get("md:dimensions", []) if self.md_meta else []
         self.attrs = self.md_meta.get("md:attributes", {}) if self.md_meta else {}
+        self.blockzsize = self.md_meta.get("md:blockzsize", 1) if self.md_meta else 1
+
 
     def _calculate_shape_and_size(self) -> None:
         """Calculate shape and size properties."""
@@ -215,19 +255,24 @@ class DatasetReader:
         self.ndim = len(self.shape)
         self.size = np.prod(self.shape) * np.dtype(self.dtype).itemsize
 
-        # Add leading dimensions of size 1 to match ndim
+        # Construct the tuple efficiently
         self.chunks = (1,) * (self.ndim - 2) + self.block_shapes
+
+        # Convert to list to modify the -3 index, then back to tuple
+        self.chunks = tuple(self.chunks[:-3] + (self.blockzsize,) + self.chunks[-2:])
 
     @lru_cache(maxsize=1)
     def _fast_load_metadata(self) -> MetadataDict | None:
-        """Load and cache metadata with optimizations.
+        """Load and validate embedded metadata.
+
+        Steps:
+        1. Extract MD_METADATA from GDAL_METADATA
+        2. Validate schema
+        3. If md:dimensions and md:coordinates_len are missing, infer from md:pattern and md:coordinates
+        4. Cache for subsequent access
 
         Returns:
-            Optional metadata dictionary with dimensions and coordinates
-
-        Warns:
-            UserWarning: If metadata loading fails
-
+            MetadataDict: Parsed metadata dictionary
         """
         try:
             metadata = self._file.tags().get(MD_METADATA_KEY)
@@ -235,19 +280,25 @@ class DatasetReader:
                 return None
             else:
                 metadata_dict = json.loads(metadata)
-                self._enhance_metadata(metadata_dict)
+                self._infer_missing_metadata(metadata_dict)
                 return metadata_dict
 
         except Exception as e:
             warnings.warn(f"Metadata loading failed: {e}", stacklevel=2)
             return None
 
-    def _enhance_metadata(self, metadata_dict: MetadataDict) -> None:
-        """Enhance metadata with computed fields.
+    def _infer_missing_metadata(self, metadata_dict: MetadataDict) -> None:
+        """Infer missing metadata fields from available pattern and coordinates.
+
+        If `md:dimensions` or `md:coordinates_len` are missing, they are derived from:
+        - `md:pattern`: For dimension ordering
+        - `md:coordinates`: For coordinate lengths
 
         Args:
-            metadata_dict: Dictionary to enhance with additional metadata
+            metadata_dict: Metadata dictionary to enhance
 
+        Modifies:
+            metadata_dict: Adds inferred fields if missing
         """
         if "md:dimensions" not in metadata_dict:
             metadata_dict["md:dimensions"] = (
@@ -262,7 +313,7 @@ class DatasetReader:
             }
 
     def _read(self, *args: Any, **kwargs: Any) -> DataArray:
-        """Internal method to read raw data from the file.
+        """Internal method to read using rasterio.
 
         Returns:
             Array containing the read data
@@ -271,27 +322,50 @@ class DatasetReader:
         return self._file.read(*args, **kwargs)
 
     def read(self, *args: Any, **kwargs: Any) -> DataArray:
-        """Read and process data with optional rearrangement.
+        """Read and restructure multidimensional data.
+
+        Processing Pipeline:
+        1. Read raw data from the file
+        2. Block aggregation reversal (if blockzsize > 1)
+        3. Einstein pattern rearrangement
+        4. xarray conversion (if requested)
+
+        Args:
+            *args: Rasterio read arguments
+            **kwargs: Rasterio read keywords
 
         Returns:
-            Data array with proper dimension arrangement
+            DataArray: Restructured array in specified format
 
-        Note:
-            Returns xarray.DataArray when engine='xarray', numpy.ndarray otherwise
-
+        Raises:
+            MetadataError: On invalid pattern/coordinate configuration
         """
+        # Short-circuit for non-mCOG files
         if not self.md_meta:
             return self._read(*args, **kwargs)
 
+        # Read and process raw data
         raw_data = self._file.read(*args, **kwargs)
+
+        # Handle block scaling reversal
+        if self.blockzsize > 1:
+            raw_data = rearrange(
+                tensor=raw_data,
+                pattern="c (h c1) (w c2) -> (c c1 c2) h w",
+                c1=self.blockzsize,
+                c2=self.blockzsize,
+            )
+
+        # Apply main rearrangement pattern
         data = rearrange(
-            raw_data,
-            self.md_meta["md:pattern"],
-            **self.md_meta["md:coordinates_len"],
+            tensor=raw_data,
+            pattern=self.md_meta["md:pattern"],
+            **self.md_meta["md:coordinates_len"]
         )
 
+        # Create xarray DataArray if engine is 'xarray'
         if self.engine == "xarray":
-            self._create_xarray(
+            return self._create_xarray(
                 data=data,
                 dims=self.md_meta["md:dimensions"],
                 coords=self.md_meta["md:coordinates"],
@@ -301,14 +375,17 @@ class DatasetReader:
         return data
 
     def __getitem__(self, key: Any) -> DataArray:
-        """Support array-like indexing with metadata handling.
+        """Dimension-aware array slicing.
+
+        Supports:
+        - Positional indexing (numpy-style)
+        - Chunk-preserving partial reads
 
         Args:
-            key: Index or slice object
+            key: Slice specification (supports mixed formats)
 
         Returns:
-            Subset of the dataset with updated metadata
-
+            DataArray: Subset with preserved metadata
         """
         new_key = SliceTransformer(ndim=self.ndim).transform(key)
 

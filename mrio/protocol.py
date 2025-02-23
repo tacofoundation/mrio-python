@@ -1,8 +1,8 @@
 """MRIO Dataset Protocols.
 
 This module defines the protocols for reader and writer operations in the mrio
-package. It specifies the required interfaces for dataset
-implementations that handle multi-dimensional COG files.
+package. It specifies the required interfaces for dataset implementations 
+that handle mCOG files.
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
     from rasterio.crs import CRS
     from rasterio.transform import Affine
+    from rasterio.enums import Compression, Interleaving, MaskFlags
+    from mrio.fields import WriteParamsDefaults
 
 # Type aliases for better readability
 Metadata = dict[str, Any]
@@ -34,28 +36,48 @@ class DatasetReaderProtocol(Protocol):
     COG files with support for metadata, coordinates, and dimensions.
     """
 
+    # GDAL properties
     file_path: Path
-    engine: Literal["numpy", "xarray"]
+    engine: Literal["numpy", "xarray"] # TODO: we must add numpy+metadata?
     profile: Profile
     meta: dict[str, Any]
-    md_meta: dict[str, Any] | None  # MRIOFields type
-    coords: Coords
-    dims: list
-    attrs: dict[str, Any]
     shape: tuple[int, ...]
-    size: int
-
-    # Geometric properties
-    width: int
-    height: int
     crs: CRS
     transform: Affine
     count: int
     bounds: tuple[float, float, float, float]
-
-    # Data properties
-    dtype: Any
     nodata: float | None
+    block_shape: tuple[int, int]
+    indexes: list[int]
+    descriptions: list[str] # band descriptions/names
+    compression: Compression
+    driver: str
+    gcps: list
+    interleaving: Interleaving
+    is_tiled: bool
+    mask_flag_enums: MaskFlags
+    nodatavals: tuple[float, ...]
+    offsets: tuple[float, ...]    
+    photometric: None
+    rpcs: list
+    scales: tuple[float, ...]
+    subdatasets: list
+    units: str
+
+    # mrio metadata fields
+    md_meta: dict[str, Any] | None  # MRIOFields type
+    md_coords: Coords
+    md_dims: list
+    md_attrs: dict[str, Any]    
+    md_blockzsize: int
+    options: dict[str, Any]
+
+    # NumPy properties
+    width: int
+    height: int        
+    dtype: Any
+    dtypes: Any
+    size: int # Size of the dataset in bytes
 
     def read(self, *args: Any, **kwargs: Any) -> NDArray | xr.DataArray:
         """Read data from the dataset.
@@ -119,8 +141,7 @@ class DatasetWriterProtocol(Protocol):
 
     file_path: Path
     args: tuple[Any, ...]
-    kwargs: dict[str, Any]
-    md_kwargs: Any  # MRIOFields type
+    kwargs: WriteParamsDefaults
 
     def write(self, data: DataArray) -> None:
         """Write data to the dataset.

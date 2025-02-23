@@ -178,3 +178,8 @@ demo.py
 Makefile
 poetry.lock
 poetry.toml
+sentinel2_4D.tif
+image.tif
+moon.tif
+output.tif
+sentinel2_4D.tif

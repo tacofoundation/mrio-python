@@ -1,7 +1,6 @@
-"""MRIO Metadata Module.
+"""MRIO metadata validation
 
-This module provides data structures for handling metadata in the MRIO (Multi-Resolution I/O) format.
-It includes classes for coordinates, metadata fields, and write parameters with validation.
+This module provides dataclasses for validating and handling metadata fields
 """
 
 from __future__ import annotations
@@ -19,10 +18,9 @@ if TYPE_CHECKING:
 
 @dataclass
 class Coordinates:
-    """Immutable coordinate data structure for MRIO metadata.
+    """Immutable coordinate data structure for "mrio:coordinates" metadata.
 
-    This class represents coordinate values for each dimension in a multi-dimensional array.
-    The coordinate values are stored as lists and are immutable once created.
+    This class handles the validation of md:coordinates metadata field.
 
     Attributes:
         values: Dictionary mapping dimension names to their coordinate values
@@ -32,7 +30,6 @@ class Coordinates:
         ...     'time': [1, 2, 3],
         ...     'bands': ['red', 'green', 'blue']
         ... })
-
     """
 
     values: dict[str, list[JSONValue]]
@@ -56,26 +53,28 @@ class Coordinates:
 class MRIOFields:
     """Metadata fields for MRIO format.
 
-    This class handles the pattern specification and coordinates for multi-dimensional arrays.
-    It validates the pattern format and ensures consistency between pattern variables and coordinates.
+    This class validates the metadata settings for mCOG files, including
+    the pattern, coordinates, attributes, and blockZsize.
 
     Attributes:
-        pattern: String specifying the dimension arrangement (e.g., "c h w -> (c) h w")
+        pattern: String specifying the dimension arrangement (e.g., "t c h w -> (c t) h w")
         coordinates: Coordinates object containing values for each dimension
         attributes: Optional dictionary of additional metadata attributes
+        blockzsize: Optional block size for the Z dimension
 
     Example:
         >>> fields = MRIOFields(
         ...     pattern="time band h w -> (time band) h w",
         ...     coordinates=Coordinates({'time': [1, 2], 'band': ['red', 'green']}),
-        ...     attributes={'scale': 0.01}
+        ...     attributes={'hello': "world"},
+        ...     blockzsize=1
         ... )
-
     """
 
     pattern: str
     coordinates: Coordinates
     attributes: dict[str, JSONValue] | None = None
+    blockzsize: int = 1
 
     # Class variable for pattern validation
     _PATTERN_REGEX: ClassVar[str] = r"^([\w\s]+)\s*->\s*\(([\w\s]+)\)\s+([\w\s]+)$"
@@ -85,13 +84,12 @@ class MRIOFields:
         """Validate and parse the pattern after initialization."""
         self._validate_pattern()
         self._validate_coordinates()
+        self._validate_blockzsize()
         self._parse_pattern()
 
-        # Wrap raw dictionary in Coordinates
-        if isinstance(self.coordinates, dict):
-            _ = Coordinates(self.coordinates)
-
-        # ingle-pass coordinate validation
+        # Validate that all md:coordinates are present in the md:pattern
+        # e.g., if pattern is "time band h w -> (time band) h w"
+        # then coordinates should be, for instance, {'time': [1, 2], 'band': ['red', 'green']}
         mismatch = set(self.coordinates.keys()) ^ set(self._in_parentheses)
         if mismatch:
             raise errors.FieldsCoordinateMDPattern()
@@ -120,6 +118,10 @@ class MRIOFields:
         if not self.coordinates.values:
             raise errors.FieldsEmptyCoordinatesError()
 
+        # Wrap raw dictionary in Coordinates
+        if isinstance(self.coordinates, dict):
+            _ = Coordinates(self.coordinates)
+
     def _parse_pattern(self) -> None:
         """Parse and validate pattern components.
 
@@ -130,14 +132,33 @@ class MRIOFields:
         if not self._pattern_match:
             raise errors.FieldsPatternParseError()
 
+        # Split md:pattern into components
         self._before_arrow = self._pattern_match.group(1).split()
         self._in_parentheses = self._pattern_match.group(2).split()
         self._after_parentheses = self._pattern_match.group(3).split()
-        self._inv_pattern = " -> ".join(map(str.strip, self.pattern.split("->")[::-1]))
 
+        # We convert the md:pattern from, for example, "time band h w -> (time band) h w"
+        # to "(time band) h w -> time band h w" for easier application of einops 
+        # rearrange operation
+        self._inv_pattern = " -> ".join(map(str.strip, self.pattern.split("->")[::-1]))
+        
+        # Validate that all variables are present in the md:pattern
         post_arrow_vars = set(self._in_parentheses + self._after_parentheses)
         if post_arrow_vars != set(self._before_arrow):
             raise errors.FieldsCoordinateMismatchError()
+
+    def _validate_blockzsize(self) -> None:
+        """Validate that the blockZsize is a positive number and not a float number.
+
+        Raises:
+            ValidationError: If blockZsize is less than 1
+
+        """
+        if self.blockzsize < 1:
+            raise errors.FieldsBlockZSizeError()
+        
+        if not isinstance(self.blockzsize, int):
+            raise errors.FieldsBlockZSizeError()
 
 
 class WriteParamsDefaults(TypedDict, total=False):
@@ -159,6 +180,7 @@ class WriteParamsDefaults(TypedDict, total=False):
     md_pattern: str | None
     md_coordinates: dict[str, list[JSONValue]] | None
     md_attributes: dict[str, JSONValue]
+    md_blockzsize: int | None
 
 
 @dataclass
@@ -181,7 +203,6 @@ class WriteParams:
         ...     'md:pattern': 'time band h w -> (time band) h w',
         ...     'md:coordinates': {'time': [1, 2], 'band': ['red', 'green']}
         ... })
-
     """
 
     DEFAULTS: ClassVar[WriteParamsDefaults] = {
@@ -198,6 +219,7 @@ class WriteParams:
         "transform": None,
         "md:pattern": None,
         "md:coordinates": None,
+        "md:blockzsize": 1,
         # These parameters are estimated automatically
         "count": 1,
         "width": None,
